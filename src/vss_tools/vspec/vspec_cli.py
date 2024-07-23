@@ -39,7 +39,7 @@ def cli(ctx: click.Context, log_level: str, log_file: Path):
     lazy_subcommands={
         # "binary": "vss_tools.vspec.vssexporters.vss2binary:cli",
         "csv": "vss_tools.vspec.vssexporters.vss2csv:cli",
-        # "ddsidl": "vss_tools.vspec.vssexporters.vss2ddsidl:cli",
+        "ddsidl": "vss_tools.vspec.vssexporters.vss2ddsidl:cli",
         # "franca": "vss_tools.vspec.vssexporters.vss2franca:cli",
         # "graphql": "vss_tools.vspec.vssexporters.vss2graphql:cli",
         # "id": "vss_tools.vspec.vssexporters.vss2id:cli",

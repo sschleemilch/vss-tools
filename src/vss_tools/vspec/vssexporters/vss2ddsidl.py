@@ -16,10 +16,10 @@ import keyword
 from vss_tools import log
 import rich_click as click
 import vss_tools.vspec.cli_options as clo
-from vss_tools.vspec.vssexporters.utils import get_trees
+from vss_tools.vspec.model import VSSBranch
+from vss_tools.vspec.vssexporters.utils import get_trees, serialize_node_data
 from pathlib import Path
 
-from vss_tools.vspec.model.vsstree import VSSType
 
 c_keywords = [
     "auto",
@@ -195,15 +195,16 @@ def export_node(node, generate_uuid, generate_all_idl_features):
     This method is used to traverse VSS node and to create corresponding DDS IDL buffer string
     """
     global idlFileBuffer
-    datatype = None
-    unit = None
-    min = None
-    max = None
-    defaultValue = None
-    allowedValues = None
-    arraysize = None
+    node_data = serialize_node_data(node)
+    datatype = node_data.get("datatype")
+    unit = node_data.get("unit")
+    min = node_data.get("min")
+    max = node_data.get("max")
+    defaultValue = node_data.get("default")
+    allowedValues = node_data.get("allowed")
+    arraysize = node_data.get("arraysize")
 
-    if node.type == VSSType.BRANCH:
+    if isinstance(node.data, VSSBranch):
         idlFileBuffer.append("module " + getAllowedName(node.name))
         idlFileBuffer.append("{")
         for child in node.children:
@@ -213,12 +214,12 @@ def export_node(node, generate_uuid, generate_all_idl_features):
     else:
         isEnumCreated = False
         # check if there is a need to create enum (based on the usage of allowed values)
-        if node.allowed != "":
+        if allowedValues:
             """
             enum should be enclosed under module block to avoid namespec conflict
             module name for enum is chosen as the node name +
             """
-            if node.datatype.value in ["string", "string[]"]:
+            if datatype in ["string", "string[]"]:
                 idlFileBuffer.append("module " + getAllowedName(node.name) + "_M")
                 idlFileBuffer.append("{")
                 idlFileBuffer.append(
@@ -227,18 +228,18 @@ def export_node(node, generate_uuid, generate_all_idl_features):
                     + "Values{"
                     + str(
                         ",".join(
-                            get_allowed_enum_literal(item) for item in node.allowed
+                            get_allowed_enum_literal(item) for item in allowedValues
                         )
                     )
                     + "};"
                 )
                 isEnumCreated = True
                 idlFileBuffer.append("};")
-                allowedValues = str(node.allowed)
+                allowedValues = str(allowedValues)
             else:
                 print(
                     f"Warning: VSS2IDL can only handle allowed values for string type, "
-                    f"signal {node.name} has type {node.datatype.value}"
+                    f"signal {node.name} has type {datatype}"
                 )
 
         idlFileBuffer.append("struct " + getAllowedName(node.name))
@@ -247,8 +248,8 @@ def export_node(node, generate_uuid, generate_all_idl_features):
             idlFileBuffer.append("string uuid;")
         # fetching value of datatype and obtaining the equivalent DDS type
         try:
-            datatype_str = node.get_datatype()
-            if node.has_datatype():
+            datatype_str = datatype
+            if datatype is not None:
                 if datatype_str in dataTypesMap_covesa_dds:
                     datatype = str(dataTypesMap_covesa_dds[datatype_str])
                 elif "[" in datatype_str:
@@ -256,25 +257,16 @@ def export_node(node, generate_uuid, generate_all_idl_features):
                     if str(nodevalueArray[0]) in dataTypesMap_covesa_dds:
                         datatype = str(dataTypesMap_covesa_dds[str(nodevalueArray[0])])
                         arraysize = "[" + str(arraysize) + nodevalueArray[1]
-            else:  # no primitive type. this is custom
-                datatype = datatype_str.replace(".", "::")  # custom data type
 
         except AttributeError:
             pass
-        # fetching value of unit
-        try:
-            unit = str(node.unit.value)
-        except AttributeError:
-            pass
 
-        if node.min is not None:
-            min = str(node.min)
-        if node.max is not None:
-            max = str(node.max)
-        if node.default != "":
-            defaultValue = node.default
-            if isinstance(defaultValue, str) and not isEnumCreated:
-                defaultValue = '"' + defaultValue + '"'
+        if min is not None:
+            min = str(min)
+        if max is not None:
+            max = str(max)
+        if isinstance(defaultValue, str) and not isEnumCreated:
+            defaultValue = '"' + defaultValue + '"'
 
         if datatype is not None:
             # adding range if min and max are specified in vspec file
@@ -341,14 +333,14 @@ def export_node(node, generate_uuid, generate_all_idl_features):
         idlFileBuffer.append(
             ("" if generate_all_idl_features else "//")
             + 'const string type ="'
-            + str(node.type.value)
+            + str(node.data.type.value)
             + '";'
         )
 
         idlFileBuffer.append(
             ("" if generate_all_idl_features else "//")
             + 'const string description="'
-            + node.description
+            + node.data.description
             + '";'
         )
         idlFileBuffer.append("};")
