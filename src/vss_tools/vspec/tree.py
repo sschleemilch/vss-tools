@@ -30,8 +30,8 @@ class VSSTreeNode(Node):  # type: ignore[misc]
         self.data = get_model(data, name)
         self.uuid: str | None = None
 
-    def get_fqn(self) -> str:
-        return ".".join([n.name for n in self.path])
+    def get_fqn(self, separator: str = ".") -> str:
+        return separator.join([n.name for n in self.path])
 
     def add_uuids(self) -> None:
         VSS_NAMESPACE = "vehicle_signal_specification"
@@ -83,7 +83,7 @@ class VSSTreeNode(Node):  # type: ignore[misc]
             if not match:
                 violations.append([node.name, "not CamelCase"])
             if isinstance(node.data, VSSDatatypeNode):
-                if node.data.datatype == Datatypes.BOOL[0]:
+                if node.data.datatype == Datatypes.BOOLEAN[0]:
                     if not node.name.startswith("Is"):
                         violations.append([node.name, "Not starting with 'Is'"])
         if violations:
