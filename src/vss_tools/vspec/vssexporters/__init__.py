@@ -5,3 +5,6 @@
 # https://www.mozilla.org/en-US/MPL/2.0/
 #
 # SPDX-License-Identifier: MPL-2.0
+
+
+IGNORE_KEYS_FOR_EXPORT = ["delete"]

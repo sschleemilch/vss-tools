@@ -12,6 +12,7 @@
 
 from vss_tools.vspec.tree import VSSTreeNode
 import json
+from typing import Any
 import rich_click as click
 import vss_tools.vspec.cli_options as clo
 from vss_tools.vspec.vssexporters.utils import get_trees
@@ -20,8 +21,8 @@ from vss_tools import log
 from vss_tools.vspec.vssexporters.utils import serialize_node_data
 
 
-def get_data(node: VSSTreeNode):
-    data = serialize_node_data(node)
+def get_data(node: VSSTreeNode, extra_attributes: bool = True):
+    data = serialize_node_data(node, extra_attributes)
     if len(node.children) > 0:
         data["children"] = {}
     for child in node.children:
@@ -58,7 +59,7 @@ def cli(
     quantities: tuple[Path],
     units: tuple[Path],
     types: tuple[Path],
-    types_output: Path,
+    types_output: Path | None,
     pretty: bool,
     extend_all_attributes: bool,
 ):
@@ -84,10 +85,12 @@ def cli(
     if pretty:
         indent = 2
 
-    signals_data = {tree.name: get_data(tree)}
+    signals_data = {tree.name: get_data(tree, extend_all_attributes)}
 
     if datatype_tree:
-        types_data = {datatype_tree.name: get_data(datatype_tree)}
+        types_data: dict[str, Any] = {
+            datatype_tree.name: get_data(datatype_tree, extend_all_attributes)
+        }
         if not types_output:
             log.info("Adding custom data types to signal dictionary")
             signals_data["ComplexDataTypes"] = types_data

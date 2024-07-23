@@ -96,10 +96,10 @@ def cli(
         expand,
     )
     log.info("Generating YAML output...")
-    tree_data = node_as_flat_dict(tree)
+    tree_data = node_as_flat_dict(tree, extend_all_attributes)
 
     if datatype_tree:
-        datatype_tree_data = node_as_flat_dict(datatype_tree)
+        datatype_tree_data = node_as_flat_dict(datatype_tree, extend_all_attributes)
         if not types_output:
             log.info("Adding custom data types to signal dictionary")
             tree_data["ComplexDataTypes"] = datatype_tree
