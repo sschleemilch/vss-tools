@@ -113,7 +113,7 @@ class VSSDatatypeNode(VSSNode):
             values = self.default
             if not isinstance(self.default, list):
                 values = [self.default]
-            for v in values:
+            for v in values:  # type: ignore
                 assert (
                     v in self.allowed
                 ), f"default value '{v}' is not in 'allowed' list"
