@@ -7,7 +7,7 @@
 # SPDX-License-Identifier: MPL-2.0
 
 from vss_tools import log
-from anytree import findall, RenderTree
+from anytree import findall, RenderTree, PreOrderIter
 from pathlib import Path
 from vss_tools.vspec.tree import (
     VSSTreeNode,
@@ -16,7 +16,6 @@ from vss_tools.vspec.tree import (
     get_naming_violations,
     get_additional_attributes,
     expand_instances,
-    as_flat_dict,
 )
 from vss_tools.vspec.vspec import load_vspec
 from vss_tools.vspec.units_quantities import load_quantities, load_units
@@ -25,7 +24,31 @@ from vss_tools.vspec.datatypes import (
     dynamic_datatypes,
     dynamic_quantities,
 )
+from typing import Any
 from vss_tools.vspec.model import VSSStruct
+
+
+def get_ignored_exporter_keys():
+    return ["delete"]
+
+
+def serialize_node_data(node: VSSTreeNode) -> dict[str, Any]:
+    raw_data = dict(node.data)
+    data = {
+        k: v
+        for k, v in raw_data.items()
+        if v is not None and k not in get_ignored_exporter_keys() and v != []
+    }
+    data["type"] = data["type"].value
+    return data
+
+
+def node_as_flat_dict(root: VSSTreeNode) -> dict[str, Any]:
+    data = {}
+    for node in PreOrderIter(root):
+        key = ".".join([n.name for n in node.path])
+        data[key] = serialize_node_data(node)
+    return data
 
 
 def get_trees(
@@ -73,7 +96,6 @@ def get_trees(
 
     # TODO: REMOVE
     log.info(RenderTree(root))
-    log.info(as_flat_dict(root))
 
     if strict or "name-style" in aborts:
         naming_violations = get_naming_violations(root)

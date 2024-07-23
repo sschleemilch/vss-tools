@@ -202,11 +202,3 @@ def expand_string(s: str) -> list[str]:
         else:
             expanded.append(expanded_entry)
     return expanded
-
-
-def as_flat_dict(node: VSSTreeNode) -> dict[str, Any]:
-    data = {}
-    for node in PreOrderIter(node):
-        key = ".".join([n.name for n in node.path])
-        data[key] = dict(node.data)
-    return data

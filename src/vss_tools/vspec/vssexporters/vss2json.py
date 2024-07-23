@@ -17,17 +17,11 @@ import vss_tools.vspec.cli_options as clo
 from vss_tools.vspec.vssexporters.utils import get_trees
 from pathlib import Path
 from vss_tools import log
-
-IGNORED_KEYS = ["delete"]
+from vss_tools.vspec.vssexporters.utils import serialize_node_data
 
 
 def get_data(node: VSSTreeNode):
-    raw_data = dict(node.data)
-    data = {
-        k: v
-        for k, v in raw_data.items()
-        if v is not None and k not in IGNORED_KEYS and v != []
-    }
+    data = serialize_node_data(node)
     if len(node.children) > 0:
         data["children"] = {}
     for child in node.children:
@@ -66,7 +60,7 @@ def cli(
     types: tuple[Path],
     types_output: Path,
     pretty: bool,
-    extend_all_attributes: bool
+    extend_all_attributes: bool,
 ):
     """
     Export as JSON.
