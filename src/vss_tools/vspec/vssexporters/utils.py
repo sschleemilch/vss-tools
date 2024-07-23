@@ -13,10 +13,6 @@ from vss_tools.vspec.tree import (
     VSSTreeNode,
     build_trees,
     get_root_with_name,
-    get_naming_violations,
-    get_additional_attributes,
-    expand_instances,
-    add_uuids,
 )
 from vss_tools.vspec.vspec import load_vspec
 from vss_tools.vspec.units_quantities import load_quantities, load_units
@@ -88,9 +84,9 @@ def get_trees(
 
     for r in roots:
         if expand:
-            expand_instances(r)
+            r.expand_instances()
         if uuid:
-            add_uuids(r)
+            r.add_uuids()
 
     if len(roots) > 2:
         log.critical(f"Unexpected amount of roots: {len(roots)}")
@@ -104,14 +100,14 @@ def get_trees(
         exit(1)
 
     if strict or "name-style" in aborts:
-        naming_violations = get_naming_violations(root)
+        naming_violations = root.get_naming_violations()
         if naming_violations:
             for violation in naming_violations:
                 log.critical(f"Name violation: '{violation[0]}' ({violation[1]})")
             exit(1)
 
     if strict or "unknown-attribute" in aborts:
-        additional_attributes = get_additional_attributes(root, extended_attributes)
+        additional_attributes = root.get_additional_attributes(extended_attributes)
         if additional_attributes:
             for attribute in additional_attributes:
                 log.critical(

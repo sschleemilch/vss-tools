@@ -1,3 +1,4 @@
+from __future__ import annotations
 import re
 from typing import Any
 import uuid
@@ -32,13 +33,80 @@ class VSSTreeNode(Node):  # type: ignore[misc]
     def get_fqn(self) -> str:
         return ".".join([n.name for n in self.path])
 
+    def add_uuids(self) -> None:
+        VSS_NAMESPACE = "vehicle_signal_specification"
+        namespace_uuid = uuid.uuid5(uuid.NAMESPACE_OID, VSS_NAMESPACE)
+        node: VSSTreeNode
+        for node in PreOrderIter(self):
+            node.uuid = uuid.uuid5(namespace_uuid, node.get_fqn()).hex
 
-def add_uuids(root: VSSTreeNode):
-    VSS_NAMESPACE = "vehicle_signal_specification"
-    namespace_uuid = uuid.uuid5(uuid.NAMESPACE_OID, VSS_NAMESPACE)
-    node: VSSTreeNode
-    for node in PreOrderIter(root):
-        node.uuid = uuid.uuid5(namespace_uuid, node.get_fqn()).hex
+    def get_instance_nodes(self) -> tuple[VSSTreeNode, ...]:
+        return findall(
+            self,
+            filter_=lambda node: isinstance(node.data, VSSBranch)
+            and node.data.instances,
+        )
+
+    def expand_instances(self) -> None:
+        instance_nodes = self.get_instance_nodes()
+        iterations = 0
+        while instance_nodes:
+            iterations += 1
+            for node in instance_nodes:
+                for instance in reversed(node.data.instances):  # type: ignore
+                    expand_instance(node, instance)
+                node.data.instances = []  # type: ignore
+            instance_nodes = self.get_instance_nodes()
+        log.info(f"Instance expand iterations: {iterations}")
+
+    def remove_delete_nodes(self) -> None:
+        size_before = self.size
+        delete_nodes = findall(
+            self,
+            filter_=lambda node: node.data.delete,
+        )
+        for node in delete_nodes:
+            log.debug(f"Deleting node: {node}")
+            node.parent = None
+        size_after = self.size
+        if delete_nodes:
+            log.info(
+                f"Nodes deleted, marked={len(delete_nodes)}, overall={size_before - size_after}"
+            )
+
+    def get_naming_violations(self) -> list[str]:
+        violations = []
+        log.info(f"Checking node name compliance for {self.name}")
+        camel_case_pattern = re.compile("[A-Z][A-Za-z0-9]*$")
+        for node in PreOrderIter(self):
+            match = re.match(camel_case_pattern, node.name)
+            if not match:
+                violations.append([node.name, "not CamelCase"])
+            if isinstance(node.data, VSSDatatypeNode):
+                if node.data.datatype == Datatypes.BOOL[0]:
+                    if not node.name.startswith("Is"):
+                        violations.append([node.name, "Not starting with 'Is'"])
+        if violations:
+            log.info(f"Naming violations: {len(violations)}")
+        return violations
+
+    def get_additional_fields(self) -> list[str]:
+        model = self.data
+        defined_fields = model.model_fields.keys()
+        additional_fields = set(model.model_dump().keys()) - set(defined_fields)
+        return list(additional_fields)
+
+    def get_additional_attributes(self, allowed: tuple[str]) -> list[str]:
+        if allowed:
+            log.info(f"Allowed attributes: {list(allowed)}")
+        violations = []
+        for node in PreOrderIter(self):
+            for field in node.get_additional_fields():
+                if field not in allowed:
+                    violations.append([node.name, field])
+        if violations:
+            log.info(f"Forbidden additional attributes: {len(violations)}")
+        return violations
 
 
 def get_expected_parent(name: str) -> str | None:
@@ -60,59 +128,6 @@ def find_children_ids(node_ids: list[str], name: str) -> list[str]:
     return ids
 
 
-def get_naming_violations(root: VSSTreeNode) -> list[str]:
-    violations = []
-    log.info(f"Checking node name compliance for {root.name}")
-    camel_case_pattern = re.compile("[A-Z][A-Za-z0-9]*$")
-    for node in PreOrderIter(root):
-        match = re.match(camel_case_pattern, node.name)
-        if not match:
-            violations.append([node.name, "not CamelCase"])
-        if isinstance(node.data, VSSDatatypeNode):
-            if node.data.datatype == Datatypes.BOOL[0]:
-                if not node.name.startswith("Is"):
-                    violations.append([node.name, "Not starting with 'Is'"])
-    if violations:
-        log.info(f"Naming violations: {len(violations)}")
-    return violations
-
-
-def get_additional_fields(node: VSSTreeNode) -> list[str]:
-    model = node.data
-    defined_fields = model.model_fields.keys()
-    additional_fields = set(model.model_dump().keys()) - set(defined_fields)
-    return list(additional_fields)
-
-
-def get_additional_attributes(root: VSSTreeNode, allowed: tuple[str]) -> list[str]:
-    if allowed:
-        log.info(f"Allowed attributes: {list(allowed)}")
-    violations = []
-    for node in PreOrderIter(root):
-        for field in get_additional_fields(node):
-            if field not in allowed:
-                violations.append([node.name, field])
-    if violations:
-        log.info(f"Forbidden additional attributes: {len(violations)}")
-    return violations
-
-
-def remove_delete_nodes(root: VSSTreeNode) -> None:
-    size_before = root.size
-    delete_nodes = findall(
-        root,
-        filter_=lambda node: node.data.delete,
-    )
-    for node in delete_nodes:
-        log.debug(f"Deleting node: {node}")
-        node.parent = None
-    size_after = root.size
-    if delete_nodes:
-        log.info(
-            f"Nodes deleted, marked={len(delete_nodes)}, overall={size_before - size_after}"
-        )
-
-
 def get_root_with_name(roots: list[VSSTreeNode], name: str) -> VSSTreeNode | None:
     for root in roots:
         if root.name == name:
@@ -128,26 +143,6 @@ def expand_instance(root: VSSTreeNode, instance: str) -> None:
         new_child.parent = root
         new_child.name = i
         new_child.data.instances = []  # type: ignore
-
-
-def get_instance_nodes(root: VSSTreeNode) -> tuple[VSSTreeNode, ...]:
-    return findall(
-        root,
-        filter_=lambda node: isinstance(node.data, VSSBranch) and node.data.instances,
-    )
-
-
-def expand_instances(root: VSSTreeNode) -> None:
-    instance_nodes = get_instance_nodes(root)
-    iterations = 0
-    while instance_nodes:
-        iterations += 1
-        for node in instance_nodes:
-            for instance in reversed(node.data.instances):  # type: ignore
-                expand_instance(node, instance)
-            node.data.instances = []  # type: ignore
-        instance_nodes = get_instance_nodes(root)
-    log.info(f"Instance expand iterations: {iterations}")
 
 
 def build_trees(data: dict[str, Any]) -> tuple[list[VSSTreeNode], list[VSSTreeNode]]:
@@ -179,7 +174,7 @@ def build_trees(data: dict[str, Any]) -> tuple[list[VSSTreeNode], list[VSSTreeNo
     if orphans:
         log.warning(f"Orphans: {len(orphans)}")
     for root in roots:
-        remove_delete_nodes(root)
+        root.remove_delete_nodes()
         log.info(f"Tree, root='{root.name}', size={root.size}, height={root.height}")
     return roots, orphans
 
