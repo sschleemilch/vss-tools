@@ -1,5 +1,6 @@
 import re
 from typing import Any
+import uuid
 
 from anytree import Node, PreOrderIter, findall
 from copy import deepcopy
@@ -26,6 +27,18 @@ class VSSTreeNode(Node):  # type: ignore[misc]
         super().__init__(name, **kwargs)
         log.debug(f"VSSTreeNode, name={name}")
         self.data = get_model(data, name)
+        self.uuid: str | None = None
+
+    def get_fqn(self) -> str:
+        return ".".join([n.name for n in self.path])
+
+
+def add_uuids(root: VSSTreeNode):
+    VSS_NAMESPACE = "vehicle_signal_specification"
+    namespace_uuid = uuid.uuid5(uuid.NAMESPACE_OID, VSS_NAMESPACE)
+    node: VSSTreeNode
+    for node in PreOrderIter(root):
+        node.uuid = uuid.uuid5(namespace_uuid, node.get_fqn()).hex
 
 
 def get_expected_parent(name: str) -> str | None:
@@ -134,7 +147,7 @@ def expand_instances(root: VSSTreeNode) -> None:
                 expand_instance(node, instance)
             node.data.instances = []  # type: ignore
         instance_nodes = get_instance_nodes(root)
-    log.info(f"Iterations: {iterations}")
+    log.info(f"Instance expand iterations: {iterations}")
 
 
 def build_trees(data: dict[str, Any]) -> tuple[list[VSSTreeNode], list[VSSTreeNode]]:

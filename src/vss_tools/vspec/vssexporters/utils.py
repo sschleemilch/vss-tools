@@ -7,7 +7,7 @@
 # SPDX-License-Identifier: MPL-2.0
 
 from vss_tools import log
-from anytree import findall, RenderTree, PreOrderIter
+from anytree import findall, PreOrderIter
 from pathlib import Path
 from vss_tools.vspec.tree import (
     VSSTreeNode,
@@ -16,6 +16,7 @@ from vss_tools.vspec.tree import (
     get_naming_violations,
     get_additional_attributes,
     expand_instances,
+    add_uuids,
 )
 from vss_tools.vspec.vspec import load_vspec
 from vss_tools.vspec.units_quantities import load_quantities, load_units
@@ -46,8 +47,10 @@ def serialize_node_data(node: VSSTreeNode) -> dict[str, Any]:
 def node_as_flat_dict(root: VSSTreeNode) -> dict[str, Any]:
     data = {}
     for node in PreOrderIter(root):
-        key = ".".join([n.name for n in node.path])
+        key = node.get_fqn()
         data[key] = serialize_node_data(node)
+        if node.uuid:
+            data[key]["uuid"] = node.uuid
     return data
 
 
@@ -79,9 +82,15 @@ def get_trees(
     dynamic_units.extend(list(unit_data.keys()))
 
     roots, orphans = build_trees(vspec_data.data)
-    if expand:
-        for r in roots:
+    if orphans:
+        log.error(f"Model has orphans\n{orphans}")
+        exit(1)
+
+    for r in roots:
+        if expand:
             expand_instances(r)
+        if uuid:
+            add_uuids(r)
 
     if len(roots) > 2:
         log.critical(f"Unexpected amount of roots: {len(roots)}")
@@ -93,9 +102,6 @@ def get_trees(
     if not root:
         log.critical("Did not find 'Vehicle' root.")
         exit(1)
-
-    # TODO: REMOVE
-    log.info(RenderTree(root))
 
     if strict or "name-style" in aborts:
         naming_violations = get_naming_violations(root)
