@@ -10,83 +10,29 @@
 
 # Convert vspec tree to JSON
 
-from vss_tools.vspec.model.vsstree import VSSNode
+from vss_tools.vspec.tree import VSSTreeNode
 import json
 import rich_click as click
 import vss_tools.vspec.cli_options as clo
 from vss_tools.vspec.vssexporters.utils import get_trees
 from pathlib import Path
-from typing import Dict, Any
 from vss_tools import log
 
+IGNORED_KEYS = ["delete"]
 
-def export_node(
-    json_dict, node, print_uuid, all_extended_attributes: bool, expand: bool
-):
-    json_dict[node.name] = {}
 
-    if node.is_signal() or node.is_property():
-        json_dict[node.name]["datatype"] = node.data_type_str
-
-    json_dict[node.name]["type"] = str(node.type.value)
-
-    # many optional attributes are initilized to "" in vsstree.py
-    if node.min is not None:
-        json_dict[node.name]["min"] = node.min
-    if node.max is not None:
-        json_dict[node.name]["max"] = node.max
-    if node.allowed != "":
-        json_dict[node.name]["allowed"] = node.allowed
-    if node.default != "":
-        json_dict[node.name]["default"] = node.default
-    if node.deprecation != "":
-        json_dict[node.name]["deprecation"] = node.deprecation
-
-    # in case of unit or aggregate, the attribute will be missing
-    try:
-        json_dict[node.name]["unit"] = str(node.unit.value)
-    except AttributeError:
-        pass
-    try:
-        json_dict[node.name]["aggregate"] = node.aggregate
-    except AttributeError:
-        pass
-
-    json_dict[node.name]["description"] = node.description
-    if node.comment != "":
-        json_dict[node.name]["comment"] = node.comment
-
-    if print_uuid:
-        json_dict[node.name]["uuid"] = node.uuid
-
-    for k, v in node.extended_attributes.items():
-        if (
-            not all_extended_attributes
-            and k not in VSSNode.whitelisted_extended_attributes
-        ):
-            continue
-        json_dict[node.name][k] = v
-
-    # Include instance information if we run tool in "no-expand" mode
-    if not expand and node.instances is not None:
-        json_dict[node.name]["instances"] = node.instances
-
-    # Might be better to not generate child dict, if there are no children
-    # if node.type == VSSType.BRANCH and len(node.children) != 0:
-    #    json_dict[node.name]["children"]={}
-
-    # But old JSON code always generates children, so lets do so to
-    if node.is_branch() or node.is_struct():
-        json_dict[node.name]["children"] = {}
-
+def get_data(node: VSSTreeNode):
+    raw_data = dict(node.data)
+    data = {
+        k: v
+        for k, v in raw_data.items()
+        if v is not None and k not in IGNORED_KEYS and v != []
+    }
+    if len(node.children) > 0:
+        data["children"] = {}
     for child in node.children:
-        export_node(
-            json_dict[node.name]["children"],
-            child,
-            print_uuid,
-            all_extended_attributes,
-            expand,
-        )
+        data["children"][child.name] = get_data(child)
+    return data
 
 
 @click.command()
@@ -103,8 +49,8 @@ def export_node(
 @clo.units_opt
 @clo.types_opt
 @clo.types_output_opt
-@clo.extend_all_attributes_opt
 @clo.pretty_print_opt
+@clo.extend_all_attributes_opt
 def cli(
     vspec: Path,
     output: Path,
@@ -119,8 +65,8 @@ def cli(
     units: tuple[Path],
     types: tuple[Path],
     types_output: Path,
-    extend_all_attributes: bool,
     pretty: bool,
+    extend_all_attributes: bool
 ):
     """
     Export as JSON.
@@ -142,25 +88,18 @@ def cli(
     log.info("Generating JSON output...")
     indent = None
     if pretty:
-        log.info("Serializing pretty JSON...")
         indent = 2
-    else:
-        log.info("Serializing compact JSON...")
 
-    signals_json_dict: Dict[str, Any] = {}
-    export_node(signals_json_dict, tree, uuid, extend_all_attributes, expand)
+    signals_data = {tree.name: get_data(tree)}
 
     if datatype_tree:
-        data_types_json_dict: Dict[str, Any] = {}
-        export_node(
-            data_types_json_dict, datatype_tree, uuid, extend_all_attributes, expand
-        )
+        types_data = {datatype_tree.name: get_data(datatype_tree)}
         if not types_output:
             log.info("Adding custom data types to signal dictionary")
-            signals_json_dict["ComplexDataTypes"] = data_types_json_dict
+            signals_data["ComplexDataTypes"] = types_data
         else:
             with open(types_output, "w") as f:
-                json.dump(data_types_json_dict, f, indent=indent, sort_keys=True)
+                json.dump(types_data, f, indent=indent, sort_keys=True)
 
     with open(output, "w") as f:
-        json.dump(signals_json_dict, f, indent=indent, sort_keys=True)
+        json.dump(signals_data, f, indent=indent, sort_keys=True)

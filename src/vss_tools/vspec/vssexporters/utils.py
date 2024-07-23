@@ -7,23 +7,25 @@
 # SPDX-License-Identifier: MPL-2.0
 
 from vss_tools import log
-from vss_tools.vspec import (
-    load_quantities,
-    load_units,
-    verify_mandatory_attributes,
-    load_tree,
-    merge_tree,
-    check_type_usage,
-    expand_tree_instances,
-    clean_metadata,
-)
-from vss_tools.vspec import VSSNode, VSSTreeType, VSpecError
+from anytree import findall, RenderTree
 from pathlib import Path
-import sys
-
-
-class ArgumentException(Exception):
-    pass
+from vss_tools.vspec.tree import (
+    VSSTreeNode,
+    build_trees,
+    get_root_with_name,
+    get_naming_violations,
+    get_additional_attributes,
+    expand_instances,
+    as_flat_dict,
+)
+from vss_tools.vspec.vspec import load_vspec
+from vss_tools.vspec.units_quantities import load_quantities, load_units
+from vss_tools.vspec.datatypes import (
+    dynamic_units,
+    dynamic_datatypes,
+    dynamic_quantities,
+)
+from vss_tools.vspec.model import VSSStruct
 
 
 def get_trees(
@@ -32,124 +34,72 @@ def get_trees(
     strict: bool,
     extended_attributes: tuple[str],
     uuid: bool,
-    quantities: tuple[Path],
+    quantities: tuple[Path, ...],
     vspec: Path,
-    units: tuple[Path],
+    units: tuple[Path, ...],
     types: tuple[Path, ...],
     types_output: Path | None,
-    overlays: tuple[Path],
+    overlays: tuple[Path, ...],
     expand: bool,
-) -> tuple[VSSNode, VSSNode | None]:
-    includes = list(include_dirs)
-    includes.extend([Path.cwd(), vspec.parent])
+) -> tuple[VSSTreeNode, VSSTreeNode | None]:
+    vspec_data = load_vspec(include_dirs, [vspec] + list(overlays) + list(types))
 
-    abort_on_unknown_attribute = False
-    abort_on_namestyle = False
+    if not quantities:
+        quantities = (vspec.parent / "quantities.yaml",)
+    if not units:
+        units = (vspec.parent / "units.yaml",)
 
-    if "unknown-attributes" in aborts or strict:
-        abort_on_unknown_attribute = True
-    if "name-style" in aborts or strict:
-        abort_on_namestyle = True
+    quantity_data = load_quantities(list(quantities))
+    dynamic_quantities.extend(list(quantity_data.keys()))
+    unit_data = load_units(list(units))
+    dynamic_units.extend(list([unit.unit for unit in unit_data.values()]))
+    dynamic_units.extend(list(unit_data.keys()))
 
-    if extended_attributes:
-        VSSNode.whitelisted_extended_attributes = list(extended_attributes)
-        log.info(f"Known extended attributes: {', '.join(extended_attributes)}")
-    else:
-        extended_attributes = list()
+    roots, orphans = build_trees(vspec_data.data)
+    if expand:
+        for r in roots:
+            expand_instances(r)
 
-    # Follow up to https://github.com/COVESA/vehicle_signal_specification/pull/721
-    # Deprecate --uuid
-    if uuid:
-        log.warning(
-            "The argument --uuid is deprecated and the uuid feature is planned"
-            "to be removed in VSS-tools 6.0"
+    if len(roots) > 2:
+        log.critical(f"Unexpected amount of roots: {len(roots)}")
+        log.critical(f"Roots: {roots}")
+        exit(1)
+
+    root = get_root_with_name(roots, "Vehicle")
+
+    if not root:
+        log.critical("Did not find 'Vehicle' root.")
+        exit(1)
+
+    # TODO: REMOVE
+    log.info(RenderTree(root))
+    log.info(as_flat_dict(root))
+
+    if strict or "name-style" in aborts:
+        naming_violations = get_naming_violations(root)
+        if naming_violations:
+            for violation in naming_violations:
+                log.critical(f"Name violation: '{violation[0]}' ({violation[1]})")
+            exit(1)
+
+    if strict or "unknown-attribute" in aborts:
+        additional_attributes = get_additional_attributes(root, extended_attributes)
+        if additional_attributes:
+            for attribute in additional_attributes:
+                log.critical(
+                    f"Additional forbidden attribute: '{attribute[0]}':'{attribute[1]}'"
+                )
+            exit(1)
+
+    types_root = get_root_with_name(roots, "Types")
+
+    if types_root:
+        struct_nodes = findall(
+            types_root,
+            filter_=lambda node: isinstance(node.data, VSSStruct),
         )
-        log.info("If you need static identifiers consider using the vspec2id tool")
+        dynamic_datatypes.extend([node.name for node in struct_nodes])
+        if dynamic_datatypes:
+            log.info(f"Dynamic datatypes: {len(dynamic_datatypes)}")
 
-    qs = [str(q) for q in quantities]
-    load_quantities(str(vspec), qs)
-    us = [str(u) for u in units]
-    load_units(str(vspec), us)
-
-    # process data type tree
-    data_type_tree = None
-    if types_output:
-        if types_output and not types:
-            raise ArgumentException(
-                "An output file for data types was provided. Please also provide "
-                "the input vspec file for data types"
-            )
-    if types:
-        data_type_tree = processDataTypeTree(
-            types_output, types, includes, abort_on_namestyle
-        )
-        verify_mandatory_attributes(data_type_tree, abort_on_unknown_attribute)
-
-    try:
-        log.info(f"Loading vspec from {vspec}...")
-        tree = load_tree(
-            str(vspec),
-            includes,
-            VSSTreeType.SIGNAL_TREE,
-            break_on_name_style_violation=abort_on_namestyle,
-            expand_inst=False,
-            data_type_tree=data_type_tree,
-        )
-
-        VSSNode.set_reference_tree(tree)
-
-        for overlay in overlays:
-            log.info(f"Applying VSS overlay from {overlay}...")
-            othertree = load_tree(
-                str(overlay),
-                includes,
-                VSSTreeType.SIGNAL_TREE,
-                break_on_name_style_violation=abort_on_namestyle,
-                expand_inst=False,
-                data_type_tree=data_type_tree,
-            )
-            merge_tree(tree, othertree)
-
-        check_type_usage(tree, VSSTreeType.SIGNAL_TREE, data_type_tree)
-        if expand:
-            expand_tree_instances(tree)
-
-        clean_metadata(tree)
-        verify_mandatory_attributes(tree, abort_on_unknown_attribute)
-        return tree, data_type_tree
-
-    except VSpecError as e:
-        log.error(f"Error: {e}")
-        sys.exit(255)
-
-
-def processDataTypeTree(
-    types_output: Path | None,
-    types: tuple[Path, ...],
-    include_dir: list[Path],
-    abort_on_namestyle: bool,
-) -> VSSNode:
-    """
-    Helper function to process command line arguments and invoke logic for processing data
-    type information provided in vspec format
-    """
-    if types_output:
-        log.info("Sensors and custom data types will be consolidated into one file.")
-
-    first_tree = True
-    for type_file in types:
-        log.info(f"Loading and processing struct/data type tree from {type_file}")
-        new_tree = load_tree(
-            str(type_file),
-            include_dir,
-            VSSTreeType.DATA_TYPE_TREE,
-            break_on_name_style_violation=abort_on_namestyle,
-            expand_inst=False,
-        )
-        if first_tree:
-            tree = new_tree
-            first_tree = False
-        else:
-            merge_tree(tree, new_tree)
-    check_type_usage(tree, VSSTreeType.DATA_TYPE_TREE)
-    return tree
+    return root, types_root
