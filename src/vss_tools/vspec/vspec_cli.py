@@ -37,7 +37,7 @@ def cli(ctx: click.Context, log_level: str, log_file: Path):
 @cli.group(
     cls=LazyGroup,
     lazy_subcommands={
-        # "binary": "vss_tools.vspec.vssexporters.vss2binary:cli",
+        "binary": "vss_tools.vspec.vssexporters.vss2binary:cli",
         "csv": "vss_tools.vspec.vssexporters.vss2csv:cli",
         "ddsidl": "vss_tools.vspec.vssexporters.vss2ddsidl:cli",
         "franca": "vss_tools.vspec.vssexporters.vss2franca:cli",

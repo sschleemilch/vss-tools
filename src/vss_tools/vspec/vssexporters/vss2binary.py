@@ -15,8 +15,9 @@ from pathlib import Path
 from vss_tools import log
 import vss_tools.vspec.cli_options as clo
 import rich_click as click
-from vss_tools.vspec.model.vsstree import VSSType
-from vss_tools.vspec.vssexporters.utils import get_trees
+from vss_tools.vspec.model import VSSAttribute, VSSSensorActuator
+from vss_tools.vspec.tree import VSSTreeNode
+from vss_tools.vspec.vssexporters.utils import get_trees, node_as_flat_dict
 
 out_file = ""
 _cbinary = None
@@ -77,14 +78,14 @@ def intToHexChar(hexInt):
         return chr(hexInt - 10 + ord("A"))
 
 
-def export_node(node, generate_uuid, out_file):
+def export_node(node: VSSTreeNode, generate_uuid, out_file):
     nodename = str(node.name)
     b_nodename = nodename.encode("utf-8")
 
-    nodetype = str(node.type.value)
+    nodetype = str(node.data.type.value)
     b_nodetype = nodetype.encode("utf-8")
 
-    nodedescription = str(node.description)
+    nodedescription = str(node.data.description)
     b_nodedescription = nodedescription.encode("utf-8")
 
     children = len(node.children)
@@ -98,45 +99,38 @@ def export_node(node, generate_uuid, out_file):
     nodeuuid = ""
     nodevalidate = ""  # exported to binary
 
-    if (
-        node.type == VSSType.SENSOR
-        or node.type == VSSType.ACTUATOR
-        or node.type == VSSType.ATTRIBUTE
-    ):
-        nodedatatype = str(node.datatype.value)
+    if isinstance(node.data, VSSSensorActuator) or isinstance(node.data, VSSAttribute):
+        nodedatatype = node.data.datatype
     b_nodedatatype = nodedatatype.encode("utf-8")
 
+    node_data = node_as_flat_dict(node)
     # many optional attributes are initilized to "" in vsstree.py
-    if node.min is not None:
-        nodemin = str(node.min)
+    if node_data.get("min") is not None:
+        nodemin = str(node_data.get("min"))
     b_nodemin = nodemin.encode("utf-8")
 
-    if node.max is not None:
-        nodemax = str(node.max)
+    if node_data.get("max") is not None:
+        nodemax = str(node_data.get("max"))
     b_nodemax = nodemax.encode("utf-8")
 
-    if node.allowed != "":
-        nodeallowed = allowedString(node.allowed)
+    if node_data.get("allowed") is not None:
+        nodeallowed = allowedString(node_data.get("allowed"))
     b_nodeallowed = nodeallowed.encode("utf-8")
 
-    if node.default != "":
-        nodedefault = str(node.default)
+    if node_data.get("default") is not None:
+        nodedefault = str(node_data.get("default"))
     b_nodedefault = nodedefault.encode("utf-8")
 
-    # in case of unit or aggregate, the attribute will be missing
-    try:
-        nodeunit = str(node.unit.value)
-    except AttributeError:
-        pass
+    nodeunit = node_data.get("unit", "")
     b_nodeunit = nodeunit.encode("utf-8")
 
     if generate_uuid:
         nodeuuid = node.uuid
-    b_nodeuuid = nodeuuid.encode("utf-8")
+    b_nodeuuid = nodeuuid.encode("utf-8")  # type: ignore
 
-    if "validate" in node.extended_attributes:
-        nodevalidate = node.extended_attributes["validate"]
-    b_nodevalidate = nodevalidate.encode("utf-8")
+    if "validate" in node.get_additional_fields():
+        nodevalidate = node_data.get("validate")
+    b_nodevalidate = nodevalidate.encode("utf-8")  # type: ignore
 
     b_fname = out_file.encode("utf-8")
 
