@@ -12,11 +12,14 @@ from typing import Optional
 
 from anytree import PreOrderIter  # type: ignore
 
-from vss_tools.vspec.model.vsstree import VSSNode
+from vss_tools.vspec.tree import VSSTreeNode
 from vss_tools.vspec.utils.idgen_utils import fnv1_32_wrapper
+from vss_tools.vspec.vssexporters.utils import serialize_node_data
 
 
-def validate_static_uids(signals_dict: dict, validation_tree: VSSNode, strict: bool):
+def validate_static_uids(
+    signals_dict: dict, validation_tree: VSSTreeNode, strict: bool
+):
     """Check if static UIDs have changed or if new ones need to be added
 
     @param signals_dict: to be exported dict of all signals containing static UID
@@ -26,16 +29,16 @@ def validate_static_uids(signals_dict: dict, validation_tree: VSSNode, strict: b
     """
 
     def check_description(k: str, v: dict, match_tuple: tuple):
-        validation_node: VSSNode = validation_tree_nodes[match_tuple[1]]
+        validation_node: VSSTreeNode = validation_tree_nodes[match_tuple[1]]
 
         try:
-            assert v["description"] == validation_node.description
+            assert v["description"] == validation_node.data.description
 
         except AssertionError:
             log.warning(
                 "[Validation] "
                 f"DESCRIPTION MISMATCH: The description of {k} has changed from "
-                f"\n\t   Validation: '{validation_node.description}' to \n\t   Current "
+                f"\n\t   Validation: '{validation_node.data.description}' to \n\t   Current "
                 f"vspec: '{v['description']}'"
             )
 
@@ -54,13 +57,11 @@ def validate_static_uids(signals_dict: dict, validation_tree: VSSNode, strict: b
             for fka_val in v["fka"]:
                 old_static_uid = "0x" + fnv1_32_wrapper(fka_val, v, strict_mode)
                 for i, validation_node in enumerate(validation_tree_nodes):
-                    if (
-                        old_static_uid
-                        == validation_node.extended_attributes["staticUID"]
-                    ):
+                    validation_node_data = serialize_node_data(validation_node)
+                    if old_static_uid == validation_node_data.get("staticUID"):
                         log.warning(
                             f"[Validation] SEMANTIC NAME CHANGE or PATH CHANGE for '{k}', "
-                            f"it used to be '{validation_node.qualified_name()}'."
+                            f"it used to be '{validation_node.get_fqn()}'."
                         )
                         semantic_match = i
             return semantic_match
@@ -100,8 +101,9 @@ def validate_static_uids(signals_dict: dict, validation_tree: VSSNode, strict: b
         for key, value in signals_dict.items():
             matched_uids = []
             for id_validation_tree, other_node in enumerate(validation_tree_nodes):
-                if value["staticUID"] == other_node.extended_attributes["staticUID"]:
-                    if key != other_node.qualified_name():
+                other_node_data = serialize_node_data(other_node)
+                if value["staticUID"] == other_node_data.get("staticUID"):
+                    if key != other_node.get_fqn():
                         _ = check_semantics(key, value, strict)
                     matched_uids.append((key, id_validation_tree))
             # if not matched via UID check semantics or path change
@@ -110,7 +112,7 @@ def validate_static_uids(signals_dict: dict, validation_tree: VSSNode, strict: b
                 if semantic_match is None:
                     key_found: bool = False
                     for i, node in enumerate(validation_tree_nodes):
-                        if key == node.qualified_name():
+                        if key == node.get_fqn():
                             key_found = True
                             validation_tree_nodes.pop(i)
                             break
@@ -147,7 +149,7 @@ def validate_static_uids(signals_dict: dict, validation_tree: VSSNode, strict: b
         for node in validation_tree_nodes:
             log.warning(
                 "[Validation] DELETED ATTRIBUTE: "
-                f"'{node.qualified_name()}' was not matched so it must have "
+                f"'{node.get_fqn()}' was not matched so it must have "
                 f"been deleted."
             )
 
@@ -155,7 +157,7 @@ def validate_static_uids(signals_dict: dict, validation_tree: VSSNode, strict: b
         while validation_tree.parent:
             validation_tree = validation_tree.parent
 
-    validation_tree_nodes: list = []
+    validation_tree_nodes: list[VSSTreeNode] = []
     for val_node in PreOrderIter(validation_tree):
         validation_tree_nodes.append(val_node)
 

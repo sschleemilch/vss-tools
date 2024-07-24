@@ -1,5 +1,6 @@
 from enum import Enum
 from typing import Any, Self
+import re
 
 from pydantic import (
     BaseModel,
@@ -40,6 +41,15 @@ class VSSNode(BaseModel):
     comment: str | None = None
     delete: bool = False
     deprecation: str | None = None
+    constUID: str | None = None
+    fka: list[str] = []
+
+    @field_validator("constUID")
+    @classmethod
+    def check_const_uid_format(cls, v: str) -> str:
+        pattern = r"^0x[0-9A-Fa-f]{8}$"
+        assert bool(re.match(pattern, v))
+        return v
 
 
 class VSSBranch(VSSNode):

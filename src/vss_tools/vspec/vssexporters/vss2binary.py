@@ -17,7 +17,10 @@ import vss_tools.vspec.cli_options as clo
 import rich_click as click
 from vss_tools.vspec.model import VSSAttribute, VSSSensorActuator
 from vss_tools.vspec.tree import VSSTreeNode
-from vss_tools.vspec.vssexporters.utils import get_trees, node_as_flat_dict
+from vss_tools.vspec.vssexporters.utils import (
+    get_trees,
+    serialize_node_data,
+)
 
 out_file = ""
 _cbinary = None
@@ -103,7 +106,7 @@ def export_node(node: VSSTreeNode, generate_uuid, out_file):
         nodedatatype = node.data.datatype
     b_nodedatatype = nodedatatype.encode("utf-8")
 
-    node_data = node_as_flat_dict(node)
+    node_data = serialize_node_data(node)
     # many optional attributes are initilized to "" in vsstree.py
     if node_data.get("min") is not None:
         nodemin = str(node_data.get("min"))

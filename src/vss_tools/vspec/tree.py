@@ -30,8 +30,8 @@ class VSSTreeNode(Node):  # type: ignore[misc]
         self.data = get_model(data, name)
         self.uuid: str | None = None
 
-    def get_fqn(self, separator: str = ".") -> str:
-        return separator.join([n.name for n in self.path])
+    def get_fqn(self, sep: str = SEPARATOR) -> str:
+        return sep.join([n.name for n in self.path])
 
     def add_uuids(self) -> None:
         VSS_NAMESPACE = "vehicle_signal_specification"
