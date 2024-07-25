@@ -10,8 +10,8 @@
 
 # Convert vspec tree to JSON
 
-from vss_tools.vspec.model import VSSNode, VSSBranch, VSSDatatype
-from vss_tools.vspec.tree import VSSTreeNode
+from vss_tools.vspec.model import VSSDataBranch, VSSDataDatatype
+from vss_tools.vspec.tree import VSSNode
 import json
 from typing import Any
 import rich_click as click
@@ -22,26 +22,23 @@ from vss_tools import log
 
 
 class ExportVisitor:
-    def export_vss_node(
-        self, node: VSSNode, data: dict[str, Any], extra_attributes: bool
-    ) -> None:
-        data.update(node.as_dict(extra_attributes))
-
     def export_vss_branch(
-        self, node: VSSBranch, data: dict[str, Any], extra_attributes: bool
+        self, node: VSSDataBranch, data: dict[str, Any], with_extra_attributes: bool
     ) -> None:
-        data.update(node.as_dict(extra_attributes))
+        data.update(node.as_dict(with_extra_attributes))
 
     def export_vss_datatype_node(
-        self, node: VSSDatatype, data: dict[str, Any], extra_attributes: bool
+        self, node: VSSDataDatatype, data: dict[str, Any], with_extra_attributes: bool
     ) -> None:
-        data.update(node.as_dict(extra_attributes))
+        data.update(node.as_dict(with_extra_attributes))
 
 
-def get_data(node: VSSTreeNode, extra_attributes: bool = True):
+def get_data(node: VSSNode, with_extra_attributes: bool = True):
     export_visitor = ExportVisitor()
     data = {}
-    node.data.export(export_visitor, data=data, extra_attributes=extra_attributes)
+    node.data.export(
+        export_visitor, data=data, with_extra_attributes=with_extra_attributes
+    )
     if len(node.children) > 0:
         data["children"] = {}
     for child in node.children:

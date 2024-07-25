@@ -20,10 +20,14 @@ from vss_tools.vspec.datatypes import (
     is_array,
 )
 
-IGNORE_KEYS_FOR_EXPORT = ["delete"]
+EXCLUDED_EXPORT_FIELDS = ["delete"]
 
 
 class ModelException(Exception):
+    pass
+
+
+class ExportException(Exception):
     pass
 
 
@@ -36,7 +40,7 @@ class NodeType(str, Enum):
     PROPERTY = "property"
 
 
-class VSSNode(BaseModel):
+class VSSData(BaseModel):
     model_config = ConfigDict(extra="allow")
     type: NodeType
     description: str
@@ -58,25 +62,25 @@ class VSSNode(BaseModel):
         additional_fields = set(self.model_dump().keys()) - set(defined_fields)
         return list(additional_fields)
 
-    def export(self, visitor, **kwargs):
-        visitor.export_vss_node(self, **kwargs)
+    def export(self, visitor, **kwargs) -> None:
+        raise ExportException(
+            f"{self.__class__.__name__}:export() should not be called"
+        )
 
-    def as_dict(self, extra_attributes: bool = True) -> dict[str, Any]:
-        raw_data = dict(self)
-        ignored_attributes = IGNORE_KEYS_FOR_EXPORT
-        if not extra_attributes:
-            ignored_attributes.extend(self.get_additional_fields())
+    def as_dict(self, with_extra_attributes: bool = True) -> dict[str, Any]:
+        exclude_fields = []
+        if not with_extra_attributes:
+            exclude_fields = EXCLUDED_EXPORT_FIELDS + self.get_additional_fields()
         data = {
             k: v
-            for k, v in raw_data.items()
-            if v is not None and k not in ignored_attributes and v != []
+            for k, v in dict(self).items()
+            if v is not None and k not in exclude_fields and v != []
         }
-
         data["type"] = self.type.value
         return data
 
 
-class VSSBranch(VSSNode):
+class VSSDataBranch(VSSData):
     instances: Any = None
 
     @field_validator("instances")
@@ -95,7 +99,7 @@ class VSSBranch(VSSNode):
             assert False, f"{v} is not a valid 'instances' content"
         return result
 
-    def export(self, visitor, **kwargs):
+    def export(self, visitor, **kwargs) -> None:
         visitor.export_vss_branch(self, **kwargs)
 
 
@@ -119,9 +123,6 @@ class VSSUnit(BaseModel):
             assert value in datatypes, f"Invalid datatype: {value}"
         return values
 
-    def export(self, visitor, **kwargs):
-        visitor.export_vss_unit(self, **kwargs)
-
 
 class VSSQuantity(BaseModel):
     definition: str
@@ -129,7 +130,7 @@ class VSSQuantity(BaseModel):
     remark: str | None = None
 
 
-class VSSDatatype(VSSNode):
+class VSSDataDatatype(VSSData):
     datatype: str
     arraysize: int | None = None
     min: int | float | None = None
@@ -205,39 +206,43 @@ class VSSDatatype(VSSNode):
         assert v in dynamic_units, f"{v} is not a valid unit"
         return v
 
-    def export(self, visitor, **kwargs):
+    def export(self, visitor, **kwargs) -> None:
         visitor.export_vss_datatype_node(self, **kwargs)
 
 
-class VSSProperty(VSSDatatype):
+class VSSDataProperty(VSSDataDatatype):
     pass
 
 
-class VSSSensorActuator(VSSDatatype):
+class VSSDataSensor(VSSDataDatatype):
     pass
 
 
-class VSSStruct(VSSNode):
+class VSSDataActuator(VSSDataDatatype):
     pass
 
 
-class VSSAttribute(VSSDatatype):
+class VSSDataStruct(VSSData):
+    pass
+
+
+class VSSDataAttribute(VSSDataDatatype):
     pass
 
 
 TYPE_CLASS_MAP = {
-    NodeType.BRANCH: VSSBranch,
-    NodeType.ATTRIBUTE: VSSAttribute,
-    NodeType.SENSOR: VSSSensorActuator,
-    NodeType.ACTUATOR: VSSSensorActuator,
-    NodeType.STRUCT: VSSStruct,
-    NodeType.PROPERTY: VSSProperty,
+    NodeType.BRANCH: VSSDataBranch,
+    NodeType.ATTRIBUTE: VSSDataAttribute,
+    NodeType.SENSOR: VSSDataSensor,
+    NodeType.ACTUATOR: VSSDataSensor,
+    NodeType.STRUCT: VSSDataStruct,
+    NodeType.PROPERTY: VSSDataProperty,
 }
 
 
-def get_model(data: dict[str, Any], name: str) -> VSSNode:
+def get_model(data: dict[str, Any], name: str) -> VSSData:
     try:
-        model = VSSNode(**data)
+        model = VSSData(**data)
         cls = TYPE_CLASS_MAP.get(model.type)
         if not cls:
             msg = f"No class type mapping for '{model.type}'"

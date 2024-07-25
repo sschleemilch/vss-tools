@@ -10,7 +10,7 @@ from vss_tools import log
 from anytree import findall
 from pathlib import Path
 from vss_tools.vspec.tree import (
-    VSSTreeNode,
+    VSSNode,
     build_trees,
     get_root_with_name,
 )
@@ -21,7 +21,7 @@ from vss_tools.vspec.datatypes import (
     dynamic_datatypes,
     dynamic_quantities,
 )
-from vss_tools.vspec.model import VSSStruct
+from vss_tools.vspec.model import VSSDataStruct
 
 
 def get_trees(
@@ -36,7 +36,7 @@ def get_trees(
     types: tuple[Path, ...],
     overlays: tuple[Path, ...],
     expand: bool,
-) -> tuple[VSSTreeNode, VSSTreeNode | None]:
+) -> tuple[VSSNode, VSSNode | None]:
     # BUG: Overlay cannot overwrite Branch that has instances correctly!!
     # Probably best:
     # - Load separately
@@ -98,7 +98,7 @@ def get_trees(
     if types_root:
         struct_nodes = findall(
             types_root,
-            filter_=lambda node: isinstance(node.data, VSSStruct),
+            filter_=lambda node: isinstance(node.data, VSSDataStruct),
         )
         dynamic_datatypes.extend([node.name for node in struct_nodes])
         if dynamic_datatypes:

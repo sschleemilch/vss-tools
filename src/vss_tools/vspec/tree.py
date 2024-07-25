@@ -7,7 +7,7 @@ from anytree import Node, PreOrderIter, findall
 from copy import deepcopy
 
 from vss_tools import log
-from vss_tools.vspec.model import VSSDatatype, get_model, VSSBranch
+from vss_tools.vspec.model import VSSDataDatatype, get_model, VSSDataBranch
 from vss_tools.vspec.datatypes import Datatypes
 
 SEPARATOR = "."
@@ -21,12 +21,12 @@ class InvalidExpansionEntryException(Exception):
     pass
 
 
-class VSSTreeNode(Node):  # type: ignore[misc]
+class VSSNode(Node):  # type: ignore[misc]
     separator = SEPARATOR
 
     def __init__(self, name: str, data: dict[str, Any], **kwargs: Any) -> None:
         super().__init__(name, **kwargs)
-        log.debug(f"VSSTreeNode, name={name}")
+        log.debug(f"{self.__class__.__name__}, name={name}")
         self.data = get_model(data, name)
         self.uuid: str | None = None
 
@@ -36,14 +36,14 @@ class VSSTreeNode(Node):  # type: ignore[misc]
     def add_uuids(self) -> None:
         VSS_NAMESPACE = "vehicle_signal_specification"
         namespace_uuid = uuid.uuid5(uuid.NAMESPACE_OID, VSS_NAMESPACE)
-        node: VSSTreeNode
+        node: VSSNode
         for node in PreOrderIter(self):
             node.uuid = uuid.uuid5(namespace_uuid, node.get_fqn()).hex
 
-    def get_instance_nodes(self) -> tuple[VSSTreeNode, ...]:
+    def get_instance_nodes(self) -> tuple[VSSNode, ...]:
         return findall(
             self,
-            filter_=lambda node: isinstance(node.data, VSSBranch)
+            filter_=lambda node: isinstance(node.data, VSSDataBranch)
             and node.data.instances,
         )
 
@@ -84,7 +84,7 @@ class VSSTreeNode(Node):  # type: ignore[misc]
             match = re.match(camel_case_pattern, node.name)
             if not match:
                 violations.append([node.name, "not CamelCase"])
-            if isinstance(node.data, VSSDatatype):
+            if isinstance(node.data, VSSDataDatatype):
                 if node.data.datatype == Datatypes.BOOLEAN[0]:
                     if not node.name.startswith("Is"):
                         violations.append([node.name, "Not starting with 'Is'"])
@@ -104,14 +104,13 @@ class VSSTreeNode(Node):  # type: ignore[misc]
             log.info(f"Forbidden additional attributes: {len(violations)}")
         return violations
 
-    def as_flat_dict(self, extra_attributes: bool = True) -> dict[str, Any]:
+    def as_flat_dict(self, with_extra_attributes: bool) -> dict[str, Any]:
         data = {}
         for node in PreOrderIter(self):
             key = node.get_fqn()
-            data[key] = node.data.as_dict(extra_attributes)
+            data[key] = node.data.as_dict(with_extra_attributes)
             if node.uuid:
                 data[key]["uuid"] = node.uuid
-        log.info(f"Elements: {len(data)}")
         return data
 
 
@@ -134,14 +133,14 @@ def find_children_ids(node_ids: list[str], name: str) -> list[str]:
     return ids
 
 
-def get_root_with_name(roots: list[VSSTreeNode], name: str) -> VSSTreeNode | None:
+def get_root_with_name(roots: list[VSSNode], name: str) -> VSSNode | None:
     for root in roots:
         if root.name == name:
             return root
     return None
 
 
-def expand_instance(root: VSSTreeNode, root_copy: VSSTreeNode, instance: str) -> None:
+def expand_instance(root: VSSNode, root_copy: VSSNode, instance: str) -> None:
     for i in expand_string(str(instance)):
         new_child = deepcopy(root_copy)
         new_child.parent = root
@@ -149,11 +148,11 @@ def expand_instance(root: VSSTreeNode, root_copy: VSSTreeNode, instance: str) ->
         new_child.data.instances = []  # type: ignore
 
 
-def build_trees(data: dict[str, Any]) -> tuple[list[VSSTreeNode], list[VSSTreeNode]]:
-    nodes: dict[str, VSSTreeNode] = {}
+def build_trees(data: dict[str, Any]) -> tuple[list[VSSNode], list[VSSNode]]:
+    nodes: dict[str, VSSNode] = {}
 
     for k, v in data.items():
-        node = VSSTreeNode(get_name(k), v)
+        node = VSSNode(get_name(k), v)
         node.children = []
         parent = get_expected_parent(k)
         if parent and parent in nodes:
