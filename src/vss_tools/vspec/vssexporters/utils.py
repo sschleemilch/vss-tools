@@ -74,13 +74,14 @@ def get_trees(
     overlay_trees = []
     if overlay_data:
         log.info("Building overlay trees")
-        overlay_root = build_overlay_trees(overlay_data.data)
+        overlay_roots = build_overlay_trees(overlay_data.data)
 
         # breakpoint()
         # for overlay_root in overlay_roots:
         #     for root in roots:
         #         if root.name == overlay_root.name:
         #             root.merge(overlay_root)
+    breakpoint()
 
     if len(roots) > 2:
         log.critical(f"Unexpected amount of roots: {len(roots)}")
