@@ -15,58 +15,21 @@ from pathlib import Path
 from vss_tools import log
 import vss_tools.vspec.cli_options as clo
 import rich_click as click
-from vss_tools.vspec.model.vsstree import VSSType
+from vss_tools.vspec.tree import VSSNode
 from vss_tools.vspec.vssexporters.utils import get_trees
-
-out_file = ""
-_cbinary = None
-
-
-def createBinaryCnode(
-    fname,
-    nodename,
-    nodetype,
-    uuid,
-    description,
-    nodedatatype,
-    nodemin,
-    nodemax,
-    unit,
-    allowed,
-    defaultAllowed,
-    validate,
-    children,
-):
-    global _cbinary
-    _cbinary.createBinaryCnode(
-        fname,
-        nodename,
-        nodetype,
-        uuid,
-        description,
-        nodedatatype,
-        nodemin,
-        nodemax,
-        unit,
-        allowed,
-        defaultAllowed,
-        validate,
-        children,
-    )
+from vss_tools.vspec.model import VSSDataBranch, VSSDataDatatype
 
 
 def allowedString(allowedList):
     allowedStr = ""
     for elem in allowedList:
         allowedStr += hexAllowedLen(elem) + elem
-    #    print("allowedstr=" + allowedStr + "\n")
     return allowedStr
 
 
 def hexAllowedLen(allowed):
     hexDigit1 = len(allowed) // 16
     hexDigit2 = len(allowed) - hexDigit1 * 16
-    #    print("Hexdigs:" + str(hexDigit1) + str(hexDigit2))
     return "".join([intToHexChar(hexDigit1), intToHexChar(hexDigit2)])
 
 
@@ -77,87 +40,73 @@ def intToHexChar(hexInt):
         return chr(hexInt - 10 + ord("A"))
 
 
-def export_node(node, generate_uuid, out_file):
-    nodename = str(node.name)
-    b_nodename = nodename.encode("utf-8")
+class ExportVisitor:
+    def export_vss_branch(
+        self,
+        vssdata: VSSDataBranch,
+        name: str,
+        output: str,
+        n_children: int,
+        cdll: ctypes.CDLL,
+        uuid: str,
+    ) -> None:
+        cdll.createBinaryCnode(
+            output.encode(),
+            name.encode(),
+            vssdata.type.value.encode(),
+            uuid.encode(),
+            vssdata.description.encode(),
+            b"",
+            b"",
+            b"",
+            b"",
+            b"",
+            b"",
+            # TODO: How to handle "validate"? What is it?
+            b"",
+            n_children,
+        )
 
-    nodetype = str(node.type.value)
-    b_nodetype = nodetype.encode("utf-8")
+    def export_vss_datatype_node(
+        self,
+        vssdata: VSSDataDatatype,
+        name: str,
+        output: str,
+        n_children: int,
+        cdll: ctypes.CDLL,
+        uuid: str,
+    ) -> None:
+        cdll.createBinaryCnode(
+            output.encode(),
+            name.encode(),
+            vssdata.type.value.encode(),
+            uuid.encode(),
+            vssdata.description.encode(),
+            b"" if vssdata.datatype is None else vssdata.datatype.encode(),
+            b"" if vssdata.min is None else str(vssdata.min).encode(),
+            b"" if vssdata.max is None else str(vssdata.max).encode(),
+            b"" if vssdata.unit is None else vssdata.unit.encode(),
+            b"" if vssdata.allowed is None else allowedString(vssdata.allowed).encode(),
+            b"" if vssdata.default is None else str(vssdata.default).encode(),
+            # TODO: How to handle "validate"? What is it?
+            b"",
+            n_children,
+        )
 
-    nodedescription = str(node.description)
-    b_nodedescription = nodedescription.encode("utf-8")
 
-    children = len(node.children)
-
-    nodedatatype = ""
-    nodemin = ""
-    nodemax = ""
-    nodeunit = ""
-    nodeallowed = ""
-    nodedefault = ""
-    nodeuuid = ""
-    nodevalidate = ""  # exported to binary
-
-    if (
-        node.type == VSSType.SENSOR
-        or node.type == VSSType.ACTUATOR
-        or node.type == VSSType.ATTRIBUTE
-    ):
-        nodedatatype = str(node.datatype.value)
-    b_nodedatatype = nodedatatype.encode("utf-8")
-
-    # many optional attributes are initilized to "" in vsstree.py
-    if node.min is not None:
-        nodemin = str(node.min)
-    b_nodemin = nodemin.encode("utf-8")
-
-    if node.max is not None:
-        nodemax = str(node.max)
-    b_nodemax = nodemax.encode("utf-8")
-
-    if node.allowed != "":
-        nodeallowed = allowedString(node.allowed)
-    b_nodeallowed = nodeallowed.encode("utf-8")
-
-    if node.default != "":
-        nodedefault = str(node.default)
-    b_nodedefault = nodedefault.encode("utf-8")
-
-    # in case of unit or aggregate, the attribute will be missing
-    try:
-        nodeunit = str(node.unit.value)
-    except AttributeError:
-        pass
-    b_nodeunit = nodeunit.encode("utf-8")
-
-    if generate_uuid:
-        nodeuuid = node.uuid
-    b_nodeuuid = nodeuuid.encode("utf-8")
-
-    if "validate" in node.extended_attributes:
-        nodevalidate = node.extended_attributes["validate"]
-    b_nodevalidate = nodevalidate.encode("utf-8")
-
-    b_fname = out_file.encode("utf-8")
-
-    createBinaryCnode(
-        b_fname,
-        b_nodename,
-        b_nodetype,
-        b_nodeuuid,
-        b_nodedescription,
-        b_nodedatatype,
-        b_nodemin,
-        b_nodemax,
-        b_nodeunit,
-        b_nodeallowed,
-        b_nodedefault,
-        b_nodevalidate,
-        children,
+def export_node(cdll: ctypes.CDLL, node: VSSNode, generate_uuid, out_file: str):
+    export_visitor = ExportVisitor()
+    uuid = "" if node.uuid is None else node.uuid
+    node.data.export(
+        export_visitor,
+        name=node.name,
+        output=out_file,
+        n_children=len(node.children),
+        cdll=cdll,
+        uuid=uuid,
     )
-
     for child in node.children:
-        export_node(child, generate_uuid, out_file)
+        export_node(cdll, child, generate_uuid, out_file)
 
 
 @click.command()
@@ -193,10 +142,8 @@ def cli(
     """
     Export to Binary.
     """
-    global _cbinary
-    _cbinary = ctypes.CDLL(str(bintool_dll))
-
-    _cbinary.createBinaryCnode.argtypes = (
+    cdll = ctypes.CDLL(str(bintool_dll))
+    cdll.createBinaryCnode.argtypes = (
         ctypes.c_char_p,
         ctypes.c_char_p,
         ctypes.c_char_p,
@@ -222,10 +169,9 @@ def cli(
         vspec,
         units,
         tuple(),
-        None,
         overlays,
         True,
     )
     log.info("Generating binary output...")
-    export_node(tree, uuid, str(output))
+    export_node(cdll, tree, uuid, str(output))
     log.info(f"Binary output generated in {output}")

@@ -10,7 +10,6 @@
 
 # Convert vspec tree to JSON
 
-from vss_tools.vspec.model import VSSDataBranch, VSSDataDatatype
 from vss_tools.vspec.tree import VSSNode
 import json
 from typing import Any
@@ -21,24 +20,8 @@ from pathlib import Path
 from vss_tools import log
 
 
-class ExportVisitor:
-    def export_vss_branch(
-        self, node: VSSDataBranch, data: dict[str, Any], with_extra_attributes: bool
-    ) -> None:
-        data.update(node.as_dict(with_extra_attributes))
-
-    def export_vss_datatype_node(
-        self, node: VSSDataDatatype, data: dict[str, Any], with_extra_attributes: bool
-    ) -> None:
-        data.update(node.as_dict(with_extra_attributes))
-
-
 def get_data(node: VSSNode, with_extra_attributes: bool = True):
-    export_visitor = ExportVisitor()
-    data = {}
-    node.data.export(
-        export_visitor, data=data, with_extra_attributes=with_extra_attributes
-    )
+    data = node.data.as_dict(with_extra_attributes)
     if len(node.children) > 0:
         data["children"] = {}
     for child in node.children:

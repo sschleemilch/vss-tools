@@ -68,9 +68,9 @@ class VSSData(BaseModel):
         )
 
     def as_dict(self, with_extra_attributes: bool = True) -> dict[str, Any]:
-        exclude_fields = []
+        exclude_fields = EXCLUDED_EXPORT_FIELDS
         if not with_extra_attributes:
-            exclude_fields = EXCLUDED_EXPORT_FIELDS + self.get_additional_fields()
+            exclude_fields.extend(self.get_additional_fields())
         data = {
             k: v
             for k, v in dict(self).items()
