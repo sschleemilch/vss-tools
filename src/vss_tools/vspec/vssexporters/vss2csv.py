@@ -46,7 +46,7 @@ def get_header(
 
 
 class Exporter:
-    def export_vss_datatype_node(
+    def export_vss_datatype(
         self,
         data: VSSDataDatatype,
         name: str,
@@ -71,6 +71,34 @@ class Exporter:
         if with_uuid:
             row.append("" if uuid is None else uuid)
         row.append("")
+        rows.append(row)
+
+    def export_vss_data(
+        self,
+        data: VSSDataBranch,
+        name: str,
+        rows: list[list[Any]],
+        with_uuid: bool,
+        uuid: str | None,
+        with_instance_column: bool,
+    ):
+        row = [
+            name,
+            data.type.value,
+            "",
+            "" if data.deprecation is None else data.deprecation,
+            "",
+            "",
+            "",
+            data.description,
+            "" if data.comment is None else data.comment,
+            "",
+            "",
+        ]
+        if with_uuid:
+            row.append("" if uuid is None else uuid)
+        if with_instance_column:
+            row.append("")
         rows.append(row)
 
     def export_vss_branch(
@@ -105,10 +133,9 @@ class Exporter:
 def add_rows(
     rows: list[list[Any]], root: VSSNode, with_uuid: bool, with_instance_column: bool
 ) -> None:
-    export_visitor = Exporter()
     for node in PreOrderIter(root):
         node.data.export(
-            export_visitor,
+            Exporter(),
             name=node.get_fqn(),
             with_uuid=with_uuid,
             with_instance_column=with_instance_column,

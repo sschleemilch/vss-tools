@@ -49,7 +49,7 @@ class Exporter:
         n_children: int,
         cdll: ctypes.CDLL,
         uuid: str,
-    ) -> None:
+    ):
         cdll.createBinaryCnode(
             output.encode(),
             name.encode(),
@@ -67,7 +67,7 @@ class Exporter:
             n_children,
         )
 
-    def export_vss_datatype_node(
+    def export_vss_datatype(
         self,
         vssdata: VSSDataDatatype,
         name: str,
@@ -95,10 +95,9 @@ class Exporter:
 
 
 def export_node(cdll: ctypes.CDLL, node: VSSNode, generate_uuid, out_file: str):
-    export_visitor = Exporter()
     uuid = "" if node.uuid is None else node.uuid
     node.data.export(
-        export_visitor,
+        Exporter(),
         name=node.name,
         output=out_file,
         n_children=len(node.children),

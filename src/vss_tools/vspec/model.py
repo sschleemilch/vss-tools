@@ -27,10 +27,6 @@ class ModelException(Exception):
     pass
 
 
-class ExportException(Exception):
-    pass
-
-
 class NodeType(str, Enum):
     BRANCH = "branch"
     ATTRIBUTE = "attribute"
@@ -62,10 +58,8 @@ class VSSData(BaseModel):
         additional_fields = set(self.model_dump().keys()) - set(defined_fields)
         return list(additional_fields)
 
-    def export(self, visitor, **kwargs) -> None:
-        raise ExportException(
-            f"{self.__class__.__name__}:export() should not be called"
-        )
+    def export(self, exporter, **kwargs) -> None:
+        exporter.export_vss_data(self, **kwargs)
 
     def as_dict(self, with_extra_attributes: bool = True) -> dict[str, Any]:
         exclude_fields = EXCLUDED_EXPORT_FIELDS
@@ -99,8 +93,8 @@ class VSSDataBranch(VSSData):
             assert False, f"{v} is not a valid 'instances' content"
         return result
 
-    def export(self, visitor, **kwargs) -> None:
-        visitor.export_vss_branch(self, **kwargs)
+    def export(self, exporter, **kwargs) -> None:
+        exporter.export_vss_branch(self, **kwargs)
 
 
 class VSSUnit(BaseModel):
@@ -206,8 +200,8 @@ class VSSDataDatatype(VSSData):
         assert v in dynamic_units, f"{v} is not a valid unit"
         return v
 
-    def export(self, visitor, **kwargs) -> None:
-        visitor.export_vss_datatype_node(self, **kwargs)
+    def export(self, exporter, **kwargs) -> None:
+        exporter.export_vss_datatype(self, **kwargs)
 
 
 class VSSDataProperty(VSSDataDatatype):
