@@ -11,12 +11,12 @@
 import rich_click as click
 from vss_tools import log
 import vss_tools.vspec.cli_options as clo
-from vss_tools.vspec.model import VSSDatatypeNode
-from vss_tools.vspec.tree import VSSTreeNode
 from vss_tools.vspec.vssexporters.utils import get_trees
+from vss_tools.vspec.model.vsstree import VSSNode
 from pathlib import Path
 from vss_tools.vspec.utils.stringstyle import camel_back
-from vss_tools.vspec.datatypes import Datatypes
+from vss_tools.vspec.model.constants import VSSDataType
+from vss_tools.vspec import VSpecError
 from typing import Dict
 
 from graphql import (
@@ -34,38 +34,34 @@ from graphql import (
 )
 
 GRAPHQL_TYPE_MAPPING = {
-    Datatypes.INT8[0]: GraphQLInt,
-    Datatypes.INT8_ARRAY[0]: GraphQLList(GraphQLInt),
-    Datatypes.UINT8[0]: GraphQLInt,
-    Datatypes.UINT8_ARRAY[0]: GraphQLList(GraphQLInt),
-    Datatypes.INT16[0]: GraphQLInt,
-    Datatypes.INT16_ARRAY[0]: GraphQLList(GraphQLInt),
-    Datatypes.UINT16[0]: GraphQLInt,
-    Datatypes.UINT16_ARRAY[0]: GraphQLList(GraphQLInt),
-    Datatypes.INT32[0]: GraphQLInt,
-    Datatypes.INT32_ARRAY[0]: GraphQLList(GraphQLInt),
-    Datatypes.UINT32[0]: GraphQLFloat,
-    Datatypes.UINT32_ARRAY[0]: GraphQLList(GraphQLFloat),
-    Datatypes.INT64[0]: GraphQLFloat,
-    Datatypes.INT64_ARRAY[0]: GraphQLList(GraphQLFloat),
-    Datatypes.UINT64[0]: GraphQLFloat,
-    Datatypes.UINT64_ARRAY[0]: GraphQLList(GraphQLFloat),
-    Datatypes.FLOAT[0]: GraphQLFloat,
-    Datatypes.FLOAT_ARRAY[0]: GraphQLList(GraphQLFloat),
-    Datatypes.DOUBLE[0]: GraphQLFloat,
-    Datatypes.DOUBLE_ARRAY[0]: GraphQLList(GraphQLFloat),
-    Datatypes.BOOLEAN[0]: GraphQLBoolean,
-    Datatypes.BOOLEAN_ARRAY[0]: GraphQLList(GraphQLBoolean),
-    Datatypes.STRING[0]: GraphQLString,
-    Datatypes.STRING_ARRAY[0]: GraphQLList(GraphQLString),
+    VSSDataType.INT8: GraphQLInt,
+    VSSDataType.INT8_ARRAY: GraphQLList(GraphQLInt),
+    VSSDataType.UINT8: GraphQLInt,
+    VSSDataType.UINT8_ARRAY: GraphQLList(GraphQLInt),
+    VSSDataType.INT16: GraphQLInt,
+    VSSDataType.INT16_ARRAY: GraphQLList(GraphQLInt),
+    VSSDataType.UINT16: GraphQLInt,
+    VSSDataType.UINT16_ARRAY: GraphQLList(GraphQLInt),
+    VSSDataType.INT32: GraphQLInt,
+    VSSDataType.INT32_ARRAY: GraphQLList(GraphQLInt),
+    VSSDataType.UINT32: GraphQLFloat,
+    VSSDataType.UINT32_ARRAY: GraphQLList(GraphQLFloat),
+    VSSDataType.INT64: GraphQLFloat,
+    VSSDataType.INT64_ARRAY: GraphQLList(GraphQLFloat),
+    VSSDataType.UINT64: GraphQLFloat,
+    VSSDataType.UINT64_ARRAY: GraphQLList(GraphQLFloat),
+    VSSDataType.FLOAT: GraphQLFloat,
+    VSSDataType.FLOAT_ARRAY: GraphQLList(GraphQLFloat),
+    VSSDataType.DOUBLE: GraphQLFloat,
+    VSSDataType.DOUBLE_ARRAY: GraphQLList(GraphQLFloat),
+    VSSDataType.BOOLEAN: GraphQLBoolean,
+    VSSDataType.BOOLEAN_ARRAY: GraphQLList(GraphQLBoolean),
+    VSSDataType.STRING: GraphQLString,
+    VSSDataType.STRING_ARRAY: GraphQLList(GraphQLString),
 }
 
 
-class GraphQLFieldException(Exception):
-    pass
-
-
-def get_schema_from_tree(root_node: VSSTreeNode, additional_leaf_fields: list) -> str:
+def get_schema_from_tree(root_node: VSSNode, additional_leaf_fields: list) -> str:
     """Takes a VSSNode and additional fields for the leafs. Returns a graphql schema as string."""
     args = dict(
         id=GraphQLArgument(
@@ -92,27 +88,23 @@ def get_schema_from_tree(root_node: VSSTreeNode, additional_leaf_fields: list) -
     return print_schema(GraphQLSchema(root_query))
 
 
-def to_gql_type(node: VSSTreeNode, additional_leaf_fields: list) -> GraphQLObjectType:
-    if isinstance(node.data, VSSDatatypeNode):
+def to_gql_type(node: VSSNode, additional_leaf_fields: list) -> GraphQLObjectType:
+    if node.has_datatype():
         fields = leaf_fields(node, additional_leaf_fields)
     else:
         fields = branch_fields(node, additional_leaf_fields)
     return GraphQLObjectType(
-        name=node.get_fqn("_"),
+        name=node.qualified_name("_"),
         fields=fields,
-        description=node.data.description,
+        description=node.description,
     )
 
 
-def leaf_fields(
-    node: VSSTreeNode, additional_leaf_fields: list
-) -> Dict[str, GraphQLField]:
+def leaf_fields(node: VSSNode, additional_leaf_fields: list) -> Dict[str, GraphQLField]:
     field_dict = {}
-    if node.data.datatype is not None:  # type: ignore
+    if node.datatype is not None:
         field_dict["value"] = field(
-            node,
-            "Value: ",
-            GRAPHQL_TYPE_MAPPING[node.data.datatype],  # type: ignore
+            node, "Value: ", GRAPHQL_TYPE_MAPPING[node.datatype]
         )
     field_dict["timestamp"] = field(node, "Timestamp: ")
     if additional_leaf_fields:
@@ -122,29 +114,30 @@ def leaf_fields(
                     node, f" {str(additional_field[1])}: "
                 )
             else:
-                raise GraphQLFieldException(
+                raise VSpecError(
                     "", "", "Incorrect format of graphql field specification"
                 )
-    if node.data.unit:  # type: ignore
+    if node.has_unit():
         field_dict["unit"] = field(node, "Unit of ")
     return field_dict
 
 
 def branch_fields(
-    node: VSSTreeNode, additional_leaf_fields: list
+    node: VSSNode, additional_leaf_fields: list
 ) -> Dict[str, GraphQLField]:
-    valid = (c for c in node.children if len(c.children) or hasattr(c.data, "datatype"))
+    # we only consider nodes that either have children or are leave with a datatype
+    valid = (c for c in node.children if len(c.children) or hasattr(c, "datatype"))
     return {
         camel_back(c.name): field(c, type=to_gql_type(c, additional_leaf_fields))
         for c in valid
     }
 
 
-def field(node: VSSTreeNode, description_prefix="", type=GraphQLString) -> GraphQLField:
+def field(node: VSSNode, description_prefix="", type=GraphQLString) -> GraphQLField:
     return GraphQLField(
         type,
-        deprecation_reason=node.data.deprecation or None,
-        description=f"{description_prefix}{node.data.description}",
+        deprecation_reason=node.deprecation or None,
+        description=f"{description_prefix}{node.description}",
     )
 
 
@@ -182,7 +175,7 @@ def cli(
     """
     Export as GraphQL.
     """
-    tree, _ = get_trees(
+    tree, datatype_tree = get_trees(
         include_dirs,
         aborts,
         strict,

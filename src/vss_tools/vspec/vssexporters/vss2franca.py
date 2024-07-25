@@ -13,8 +13,7 @@
 
 import rich_click as click
 from pathlib import Path
-from vss_tools.vspec.tree import VSSTreeNode
-from vss_tools.vspec.vssexporters.utils import get_trees, serialize_node_data
+from vss_tools.vspec.vssexporters.utils import get_trees
 import vss_tools.vspec.cli_options as clo
 from anytree import PreOrderIter  # type: ignore[import]
 
@@ -49,34 +48,27 @@ const SignalSpec[] signal_spec = [
 # Write the data lines
 def print_franca_content(file, tree, uuid):
     output = ""
-    node: VSSTreeNode
-    for node in PreOrderIter(tree):
-        node_data = serialize_node_data(node)
-        if node.parent:
+    for tree_node in PreOrderIter(tree):
+        if tree_node.parent:
             if output:
                 output += ",\n{"
             else:
                 output += "{"
-            output += f'\tname: "{node.get_fqn()}"'
-            output += f',\n\ttype: "{node.data.type.value}"'
-            output += f',\n\tdescription: "{node.data.description}"'
-            datatype = node_data.get("datatype")
-            if datatype:
-                output += f',\n\tdatatype: "{datatype}"'
+            output += f"\tname: \"{tree_node.qualified_name('.')}\""
+            output += f',\n\ttype: "{tree_node.type.value}"'
+            output += f',\n\tdescription: "{tree_node.description}"'
+            if tree_node.has_datatype():
+                output += f',\n\tdatatype: "{tree_node.get_datatype()}"'
             if uuid:
-                output += f',\n\tuuid: "{node.uuid}"'
-            unit = node_data.get("unit")
-            if unit:
-                output += f',\n\tunit: "{unit}"'
-            min = node_data.get("min")
-            if min:
-                output += f",\n\tmin: {min}"
-            max = node_data.get("max")
-            if max:
-                output += f",\n\tmax: {max}"
-            allowed = node_data.get("allowed")
-            if allowed:
-                output += f",\n\tallowed: {allowed}"
+                output += f',\n\tuuid: "{tree_node.uuid}"'
+            if tree_node.has_unit():
+                output += f',\n\tunit: "{tree_node.get_unit()}"'
+            if tree_node.min is not None:
+                output += f",\n\tmin: {tree_node.min}"
+            if tree_node.max is not None:
+                output += f",\n\tmax: {tree_node.max}"
+            if tree_node.allowed:
+                output += f",\n\tallowed: {tree_node.allowed}"
 
             output += "\n}"
     file.write(output)
@@ -111,7 +103,7 @@ def cli(
     Export as Franca.
     """
     print("Generating Franca output...")
-    tree, _ = get_trees(
+    tree, datatype_tree = get_trees(
         include_dirs,
         aborts,
         strict,

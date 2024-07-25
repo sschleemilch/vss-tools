@@ -15,18 +15,13 @@ import os
 import sys
 import rich_click as click
 import vss_tools.vspec.cli_options as clo
-from vss_tools.vspec.tree import VSSTreeNode
-from vss_tools.vspec.model import (
-    VSSBranch,
-    VSSProperty,
-    VSSStruct,
-)
 from vss_tools.vspec.vssexporters.utils import get_trees
 from pathlib import Path
 from typing import Set
 
 from anytree import PreOrderIter  # type: ignore[import]
 from vss_tools import log
+from vss_tools.vspec.model.vsstree import VSSNode
 
 # Add path to main py vspec  parser
 myDir = os.path.dirname(os.path.realpath(__file__))
@@ -57,7 +52,7 @@ class ProtoExporter(object):
             proto_file.write(f"package {package_name};\n\n")
             self.out_files.add(fp)
 
-    def traverse_data_type_tree(self, tree: VSSTreeNode, static_uid, add_optional):
+    def traverse_data_type_tree(self, tree: VSSNode, static_uid, add_optional):
         """
         All structs in a branch are written to a single .proto file.
         The file's base name is same as the branch's name
@@ -72,10 +67,10 @@ class ProtoExporter(object):
         A/B/C/C.proto
         """
 
-        tree_node: VSSTreeNode
+        tree_node: VSSNode
 
         for tree_node in filter(lambda n: n.is_struct(), PreOrderIter(tree)):
-            type_qn = tree_node.get_fqn(PATH_DELIMITER).split(PATH_DELIMITER)
+            type_qn = tree_node.qualified_name(PATH_DELIMITER).split(PATH_DELIMITER)
             curr_branch_qn = type_qn[:-1]
             # create dir if necessary
             dp = self.out_dir / Path(DIR_DELIMITER.join(curr_branch_qn))
@@ -90,10 +85,10 @@ class ProtoExporter(object):
                 # import of other proto types in other branches
                 imports = []
                 for c_node in filter(
-                    lambda c: isinstance(c.data, VSSProperty),
+                    lambda c: c.is_property() and not c.has_datatype(),
                     tree_node.children,
                 ):
-                    child_branch_path = c_node.data.datatype.split(PATH_DELIMITER)[:-1]
+                    child_branch_path = c_node.get_datatype().split(PATH_DELIMITER)[:-1]
                     child_branch_path_str = DIR_DELIMITER.join(child_branch_path)
                     if child_branch_path_str != DIR_DELIMITER.join(curr_branch_qn):
                         child_basename = child_branch_path[-1]
@@ -116,64 +111,58 @@ class ProtoExporter(object):
                 log.info(f"Wrote {type_qn[-1]} to {fp}")
 
 
-def traverse_signal_tree(tree: VSSTreeNode, proto_file, static_uid, add_optional):
+def traverse_signal_tree(tree: VSSNode, proto_file, static_uid, add_optional):
     proto_file.write('syntax = "proto3";\n\n')
-    tree_node: VSSTreeNode
+    tree_node: VSSNode
 
-    # TODO: Before there was a check for "and not c.has_datatype()" which cannot happen
-    # for Sensor/Actor/Attribute since datatype is required
     # get all the import statements for dependent types (structs)
-    # imports = []
-    # for c_node in filter(
-    #     lambda c: isinstance(c.data, VSSSensorActuator)
-    #     or isinstance(c.data, VSSAttribute),
-    #     PreOrderIter(tree),
-    # ):
-    #     child_path = c_node.data.datatype.split(PATH_DELIMITER)[:-1]
-    #     child_basename = child_path[-1]
-    #     imports.append(f"{DIR_DELIMITER.join(child_path)}/{child_basename}.proto")
-    # # unique sorted list
-    # imports = list(set(imports))
-    # imports.sort()
-    # # write import statements to file
-    # for importstmt in imports:
-    #     proto_file.write(f'import "{importstmt}";\n')
-    # proto_file.write("\n")
+    imports = []
+    for c_node in filter(
+        lambda c: c.is_signal() and not c.has_datatype(), PreOrderIter(tree)
+    ):
+        child_path = c_node.get_datatype().split(PATH_DELIMITER)[:-1]
+        child_basename = child_path[-1]
+        imports.append(f"{DIR_DELIMITER.join(child_path)}/{child_basename}.proto")
+
+    # unique sorted list
+    imports = list(set(imports))
+    imports.sort()
+    # write import statements to file
+    for importstmt in imports:
+        proto_file.write(f'import "{importstmt}";\n')
+    proto_file.write("\n")
 
     # write proto messages to file
-    for tree_node in filter(
-        lambda n: isinstance(n.data, VSSBranch), PreOrderIter(tree)
-    ):
-        proto_file.write(f"message {tree_node.get_fqn('')} {{" + "\n")
+    for tree_node in filter(lambda n: n.is_branch(), PreOrderIter(tree)):
+        proto_file.write(f"message {tree_node.qualified_name('')} {{" + "\n")
         print_message_body(tree_node.children, proto_file, static_uid, add_optional)
         proto_file.write("}\n\n")
 
 
 def print_message_body(nodes, proto_file, static_uid, add_optional):
     usedKeys = {}
-    node: VSSTreeNode
     for i, node in enumerate(nodes, 1):
-        if not (isinstance(node.data, VSSBranch) or isinstance(node.data, VSSStruct)):
-            dt_val = node.data.datatype  # type: ignore
+        if not (node.is_branch() or node.is_struct()):
+            dt_val = node.get_datatype()
             data_type = mapped.get(dt_val.strip("[]"), dt_val.strip("[]"))
             if dt_val.endswith("[]"):
                 data_type = "repeated " + data_type
             elif add_optional:
                 data_type = "optional " + data_type
         else:
-            data_type = node.get_fqn("")
+            data_type = node.qualified_name("")
             if add_optional:
                 data_type = "optional " + data_type
         if static_uid:
-            if "staticUID" not in node.get_additional_fields():
+            if "staticUID" not in node.extended_attributes:
                 log.fatal(
                     (
-                        f"Aborting because {node.get_fqn()} does not have the staticUID attribute. "
+                        f"Aborting because {node.qualified_name('.')} does not have the staticUID attribute. "
                         f"When using the option --static-uid each node must have the attribute staticUID."
                     )
                 )
                 sys.exit(-1)
-            fieldNumber = int(int(node.data.staticUID, 0) / 8)  # type: ignore
+            fieldNumber = int(int(node.extended_attributes["staticUID"], 0) / 8)
             if fieldNumber < 20000 and fieldNumber >= 19000:
                 log.fatal("""Aborting because field number {fieldNumber} for signal {node.name} is in
                 reservered range between 19000 and 20000. Consider changing the signal to alter the staticUID.""")
@@ -182,14 +171,14 @@ def print_message_body(nodes, proto_file, static_uid, add_optional):
                 log.fatal(
                     (
                         f"Aborting, due to collision for fieldNumber {fieldNumber}. "
-                        f"It is used by {node.get_fqn()} and {usedKeys[fieldNumber]}. "
+                        f"It is used by {node.qualified_name('.')} and {usedKeys[fieldNumber]}. "
                         "Consider changing the signals to alter the staticUID."
                     )
                 )
                 proto_file.truncate(0)
                 sys.exit(-1)
             else:
-                usedKeys[fieldNumber] = node.get_fqn()
+                usedKeys[fieldNumber] = node.qualified_name(".")
         else:
             fieldNumber = i
         proto_file.write(f"  {data_type} {node.name} = {fieldNumber};" + "\n")
@@ -228,7 +217,7 @@ def cli(
     quantities: tuple[Path],
     units: tuple[Path],
     types: tuple[Path],
-    types_out_dir: Path | None,
+    types_out_dir: Path,
     static_uid: bool,
     add_optional: bool,
 ):

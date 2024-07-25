@@ -7,7 +7,7 @@
 # SPDX-License-Identifier: MPL-2.0
 
 from vss_tools import log
-from anytree import findall, PreOrderIter
+from anytree import findall
 from pathlib import Path
 from vss_tools.vspec.tree import (
     VSSTreeNode,
@@ -21,38 +21,7 @@ from vss_tools.vspec.datatypes import (
     dynamic_datatypes,
     dynamic_quantities,
 )
-from typing import Any
 from vss_tools.vspec.model import VSSStruct
-from vss_tools.vspec.vssexporters import IGNORE_KEYS_FOR_EXPORT
-
-
-def serialize_node_data(
-    node: VSSTreeNode, extra_attributes: bool = True
-) -> dict[str, Any]:
-    raw_data = dict(node.data)
-    ignored_attributes = IGNORE_KEYS_FOR_EXPORT
-    if not extra_attributes:
-        ignored_attributes.extend(node.get_additional_fields())
-    data = {
-        k: v
-        for k, v in raw_data.items()
-        if v is not None and k not in ignored_attributes and v != []
-    }
-
-    data["type"] = data["type"].value
-    return data
-
-
-def node_as_flat_dict(
-    root: VSSTreeNode, extra_attributes: bool = True
-) -> dict[str, Any]:
-    data = {}
-    for node in PreOrderIter(root):
-        key = node.get_fqn()
-        data[key] = serialize_node_data(node, extra_attributes)
-        if node.uuid:
-            data[key]["uuid"] = node.uuid
-    return data
 
 
 def get_trees(
@@ -65,10 +34,14 @@ def get_trees(
     vspec: Path,
     units: tuple[Path, ...],
     types: tuple[Path, ...],
-    types_output: Path | None,
     overlays: tuple[Path, ...],
     expand: bool,
 ) -> tuple[VSSTreeNode, VSSTreeNode | None]:
+    # BUG: Overlay cannot overwrite Branch that has instances correctly!!
+    # Probably best:
+    # - Load separately
+    # - implmenet VSSTreeNode.merge()
+    # - for overlay in overlay_tree: vspec_tree.merge(overlay)
     vspec_data = load_vspec(include_dirs, [vspec] + list(overlays) + list(types))
 
     if not quantities:

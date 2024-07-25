@@ -76,6 +76,7 @@ class VSpec:
         self.source = source
         self.prefix = prefix
         self.include_dirs = [source.parent] + include_dirs
+        self.include_dirs = list(set(self.include_dirs))
         log.debug(f"Include dirs: {include_dirs}")
 
         self.content = source.read_text()

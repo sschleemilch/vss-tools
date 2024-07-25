@@ -15,9 +15,8 @@ from pathlib import Path
 from vss_tools import log
 import rich_click as click
 import vss_tools.vspec.cli_options as clo
-from vss_tools.vspec.model import VSSBranch
-from vss_tools.vspec.tree import VSSTreeNode
-from vss_tools.vspec.vssexporters.utils import get_trees, serialize_node_data
+from vss_tools.vspec.model.vsstree import VSSNode
+from vss_tools.vspec.vssexporters.utils import get_trees
 from anytree import PreOrderIter  # type: ignore[import]
 from typing import AnyStr
 
@@ -46,6 +45,9 @@ def print_csv_header(file, uuid, entry_type: AnyStr, include_instance_column: bo
     file.write(format_csv_line(arg_list))
 
 
+# Format a data or header line according to the CSV standard (IETF RFC 4180)
+
+
 def format_csv_line(csv_fields):
     formatted_csv_line = ""
     for csv_field in csv_fields:
@@ -57,30 +59,31 @@ def format_csv_line(csv_fields):
     return formatted_csv_line[:-1] + "\n"
 
 
-def print_csv_content(
-    file, tree: VSSTreeNode, uuid: bool, include_instance_column: bool
-):
-    node: VSSTreeNode
-    for node in PreOrderIter(tree):
-        node_data = serialize_node_data(node)
+# Write the data lines
+
+
+def print_csv_content(file, tree: VSSNode, uuid, include_instance_column: bool):
+    tree_node: VSSNode
+    for tree_node in PreOrderIter(tree):
+        data_type_str = tree_node.get_datatype()
+        unit_str = tree_node.get_unit()
         arg_list = [
-            node.get_fqn(),
-            node.data.type.value,
-            node_data.get("datatype", None),
-            node.data.deprecation,
-            node_data.get("unit", None),
-            node_data.get("min", None),
-            node_data.get("max", None),
-            node.data.description,
-            node.data.comment,
-            node_data.get("allowed", None),
-            node_data.get("default", None),
+            tree_node.qualified_name("."),
+            tree_node.type.value,
+            data_type_str,
+            tree_node.deprecation,
+            unit_str,
+            tree_node.min,
+            tree_node.max,
+            tree_node.description,
+            tree_node.comment,
+            tree_node.allowed,
+            tree_node.default,
         ]
         if uuid:
-            arg_list.append(node.uuid)
-        if include_instance_column:
-            if isinstance(node, VSSBranch):
-                arg_list.append(node.instances)
+            arg_list.append(tree_node.uuid)
+        if include_instance_column and tree_node.instances is not None:
+            arg_list.append(tree_node.instances)
         file.write(format_csv_line(arg_list))
 
 

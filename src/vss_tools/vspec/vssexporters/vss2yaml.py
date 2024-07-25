@@ -17,7 +17,7 @@ import yaml
 import rich_click as click
 import vss_tools.vspec.cli_options as clo
 from pathlib import Path
-from vss_tools.vspec.vssexporters.utils import get_trees, node_as_flat_dict
+from vss_tools.vspec.vssexporters.utils import get_trees
 from vss_tools import log
 
 
@@ -91,15 +91,14 @@ def cli(
         vspec,
         units,
         types,
-        types_output,
         overlays,
         expand,
     )
     log.info("Generating YAML output...")
-    tree_data = node_as_flat_dict(tree, extend_all_attributes)
+    tree_data = tree.as_flat_dict(extend_all_attributes)
 
     if datatype_tree:
-        datatype_tree_data = node_as_flat_dict(datatype_tree, extend_all_attributes)
+        datatype_tree_data = datatype_tree.as_flat_dict(extend_all_attributes)
         if not types_output:
             log.info("Adding custom data types to signal dictionary")
             tree_data["ComplexDataTypes"] = datatype_tree

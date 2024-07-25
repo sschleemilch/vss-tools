@@ -12,46 +12,43 @@
 
 import json
 import rich_click as click
-from vss_tools.vspec.model import VSSBranch, VSSStruct
-from vss_tools.vspec.tree import VSSTreeNode
-from vss_tools.vspec.vssexporters.utils import get_trees, serialize_node_data
+from vss_tools.vspec.vssexporters.utils import get_trees
 import vss_tools.vspec.cli_options as clo
 from pathlib import Path
 from vss_tools import log
 from typing import Dict, Any
-from vss_tools.vspec.datatypes import Datatypes
 
 type_map = {
-    Datatypes.INT8[0]: "integer",
-    Datatypes.UINT8[0]: "integer",
-    Datatypes.INT16[0]: "integer",
-    Datatypes.UINT16[0]: "integer",
-    Datatypes.INT32[0]: "integer",
-    Datatypes.UINT32[0]: "integer",
-    Datatypes.INT64[0]: "integer",
-    Datatypes.UINT64[0]: "integer",
-    Datatypes.BOOLEAN[0]: "boolean",
-    Datatypes.FLOAT[0]: "number",
-    Datatypes.DOUBLE[0]: "number",
-    Datatypes.STRING[0]: "string",
-    Datatypes.INT8_ARRAY[0]: "array",
-    Datatypes.UINT8_ARRAY[0]: "array",
-    Datatypes.INT16_ARRAY[0]: "array",
-    Datatypes.UINT16_ARRAY[0]: "array",
-    Datatypes.INT32_ARRAY[0]: "array",
-    Datatypes.UINT32_ARRAY[0]: "array",
-    Datatypes.INT64_ARRAY[0]: "array",
-    Datatypes.UINT64_ARRAY[0]: "array",
-    Datatypes.BOOLEAN_ARRAY[0]: "array",
-    Datatypes.FLOAT_ARRAY[0]: "array",
-    Datatypes.DOUBLE_ARRAY[0]: "array",
-    Datatypes.STRING_ARRAY[0]: "array",
+    "int8": "integer",
+    "uint8": "integer",
+    "int16": "integer",
+    "uint16": "integer",
+    "int32": "integer",
+    "uint32": "integer",
+    "int64": "integer",
+    "uint64": "integer",
+    "boolean": "boolean",
+    "float": "number",
+    "double": "number",
+    "string": "string",
+    "int8[]": "array",
+    "uint8[]": "array",
+    "int16[]": "array",
+    "uint16[]": "array",
+    "int32[]": "array",
+    "uint32[]": "array",
+    "int64[]": "array",
+    "uint64[]": "array",
+    "boolean[]": "array",
+    "float[]": "array",
+    "double[]": "array",
+    "string[]": "array",
 }
 
 
 def export_node(
     json_dict,
-    node: VSSTreeNode,
+    node,
     print_uuid,
     all_extended_attributes: bool,
     no_additional_properties: bool,
@@ -60,57 +57,57 @@ def export_node(
     """Preparing nodes for JSON schema output."""
     # keyword with X- sign are left for extensions and they are not part of official JSON schema
     json_dict[node.name] = {
-        "description": node.data.description,
+        "description": node.description,
     }
 
-    if hasattr(node.data, "datatype"):
-        json_dict[node.name]["type"] = type_map[node.data.datatype]  # type: ignore
+    if node.is_signal() or node.is_property():
+        json_dict[node.name]["type"] = type_map[node.data_type_str]
 
     # many optional attributes are initialized to "" in vsstree.py
-    node_data = serialize_node_data(node)
-    if node_data.get("min"):
-        json_dict[node.name]["minimum"] = node_data.get("min")
-    if node_data.get("max"):
-        json_dict[node.name]["maximum"] = node_data.get("max")
-    if node_data.get("allowed"):
-        json_dict[node.name]["enum"] = node_data.get("allowed")
-    if node_data.get("default"):
-        json_dict[node.name]["default"] = node_data.get("default")
-
-    if isinstance(node.data, VSSStruct):
+    if node.min is not None:
+        json_dict[node.name]["minimum"] = node.min
+    if node.max is not None:
+        json_dict[node.name]["maximum"] = node.max
+    if node.allowed != "":
+        json_dict[node.name]["enum"] = node.allowed
+    if node.default != "":
+        json_dict[node.name]["default"] = node.default
+    if node.is_struct():
         # change type to object
-        json_dict[node.data.type.value]["type"] = "object"
+        json_dict[node.type]["type"] = "object"
 
     if all_extended_attributes:
-        json_dict[node.name]["x-VSStype"] = str(node.data.type.value)
-        if node_data.get("datatype"):
-            json_dict[node.name]["x-datatype"] = node_data.get("datatype")
-        if node.data.deprecation:
-            json_dict[node.name]["x-deprecation"] = node.data.deprecation
+        if node.type != "":
+            json_dict[node.name]["x-VSStype"] = str(node.type.value)
+        if node.data_type_str != "":
+            json_dict[node.name]["x-datatype"] = node.data_type_str
+        if node.deprecation != "":
+            json_dict[node.name]["x-deprecation"] = node.deprecation
 
-        if node_data.get("unit"):
-            json_dict[node.name]["x-unit"] = str(node_data.get("unit"))
+        # in case of unit or aggregate, the attribute will be missing
+        try:
+            json_dict[node.name]["x-unit"] = str(node.unit.value)
+        except AttributeError:
+            pass
+        try:
+            json_dict[node.name]["x-aggregate"] = node.aggregate
+            if node.aggregate:
+                # change type to object
+                json_dict[node.type]["type"] = "object"
+        except AttributeError:
+            pass
 
-        # TODO: What to do with aggregate? What is aggregate?
-        # try:
-        #     json_dict[node.name]["x-aggregate"] = node.aggregate
-        #     if node.aggregate:
-        #         # change type to object
-        #         json_dict[node.type]["type"] = "object"
-        # except AttributeError:
-        #     pass
-
-        if node.data.comment:
-            json_dict[node.name]["x-comment"] = node.data.comment
+        if node.comment != "":
+            json_dict[node.name]["x-comment"] = node.comment
 
         if print_uuid:
             json_dict[node.name]["x-uuid"] = node.uuid
 
-    for field in node.get_additional_fields():
-        json_dict[node.name][field] = node_data.get(field)
+    for k, v in node.extended_attributes.items():
+        json_dict[node.name][k] = v
 
     # Generate child nodes
-    if isinstance(node.data, VSSBranch) or isinstance(node.data, VSSStruct):
+    if node.is_branch() or node.is_struct():
         if no_additional_properties:
             json_dict[node.name]["additionalProperties"] = False
         json_dict[node.name]["properties"] = {}

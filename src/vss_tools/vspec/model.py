@@ -20,6 +20,8 @@ from vss_tools.vspec.datatypes import (
     is_array,
 )
 
+IGNORE_KEYS_FOR_EXPORT = ["delete"]
+
 
 class ModelException(Exception):
     pass
@@ -51,9 +53,50 @@ class VSSNode(BaseModel):
         assert bool(re.match(pattern, v))
         return v
 
+    def get_additional_fields(self) -> list[str]:
+        defined_fields = self.model_fields.keys()
+        additional_fields = set(self.model_dump().keys()) - set(defined_fields)
+        return list(additional_fields)
+
+    def export(self, visitor, **kwargs):
+        visitor.export_vss_node(self, **kwargs)
+
+    def as_dict(self, extra_attributes: bool = True) -> dict[str, Any]:
+        raw_data = dict(self)
+        ignored_attributes = IGNORE_KEYS_FOR_EXPORT
+        if not extra_attributes:
+            ignored_attributes.extend(self.get_additional_fields())
+        data = {
+            k: v
+            for k, v in raw_data.items()
+            if v is not None and k not in ignored_attributes and v != []
+        }
+
+        data["type"] = self.type.value
+        return data
+
 
 class VSSBranch(VSSNode):
-    instances: list[str | list[Any]] = []
+    instances: Any = None
+
+    @field_validator("instances")
+    @classmethod
+    def fill_instances(cls, v: Any) -> list[str]:
+        result = []
+        if isinstance(v, str):
+            result = [v]
+        elif isinstance(v, list):
+            for element in v:
+                if isinstance(element, list):
+                    result.extend(element)
+                else:
+                    result.append(element)
+        else:
+            assert False, f"{v} is not a valid 'instances' content"
+        return result
+
+    def export(self, visitor, **kwargs):
+        visitor.export_vss_branch(self, **kwargs)
 
 
 class VSSUnit(BaseModel):
@@ -76,6 +119,9 @@ class VSSUnit(BaseModel):
             assert value in datatypes, f"Invalid datatype: {value}"
         return values
 
+    def export(self, visitor, **kwargs):
+        visitor.export_vss_unit(self, **kwargs)
+
 
 class VSSQuantity(BaseModel):
     definition: str
@@ -83,7 +129,7 @@ class VSSQuantity(BaseModel):
     remark: str | None = None
 
 
-class VSSDatatypeNode(VSSNode):
+class VSSDatatype(VSSNode):
     datatype: str
     arraysize: int | None = None
     min: int | float | None = None
@@ -159,12 +205,15 @@ class VSSDatatypeNode(VSSNode):
         assert v in dynamic_units, f"{v} is not a valid unit"
         return v
 
+    def export(self, visitor, **kwargs):
+        visitor.export_vss_datatype_node(self, **kwargs)
 
-class VSSProperty(VSSDatatypeNode):
+
+class VSSProperty(VSSDatatype):
     pass
 
 
-class VSSSensorActuator(VSSDatatypeNode):
+class VSSSensorActuator(VSSDatatype):
     pass
 
 
@@ -172,7 +221,7 @@ class VSSStruct(VSSNode):
     pass
 
 
-class VSSAttribute(VSSDatatypeNode):
+class VSSAttribute(VSSDatatype):
     pass
 
 

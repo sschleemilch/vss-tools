@@ -7,7 +7,7 @@ from anytree import Node, PreOrderIter, findall
 from copy import deepcopy
 
 from vss_tools import log
-from vss_tools.vspec.model import VSSDatatypeNode, get_model, VSSBranch
+from vss_tools.vspec.model import VSSDatatype, get_model, VSSBranch
 from vss_tools.vspec.datatypes import Datatypes
 
 SEPARATOR = "."
@@ -53,8 +53,10 @@ class VSSTreeNode(Node):  # type: ignore[misc]
         while instance_nodes:
             iterations += 1
             for node in instance_nodes:
-                for instance in reversed(node.data.instances):  # type: ignore
-                    expand_instance(node, instance)
+                node_copy = deepcopy(node)
+                node.children = []
+                for instance in node.data.instances:  # type: ignore
+                    expand_instance(node, node_copy, instance)
                 node.data.instances = []  # type: ignore
             instance_nodes = self.get_instance_nodes()
         log.info(f"Instance expand iterations: {iterations}")
@@ -82,7 +84,7 @@ class VSSTreeNode(Node):  # type: ignore[misc]
             match = re.match(camel_case_pattern, node.name)
             if not match:
                 violations.append([node.name, "not CamelCase"])
-            if isinstance(node.data, VSSDatatypeNode):
+            if isinstance(node.data, VSSDatatype):
                 if node.data.datatype == Datatypes.BOOLEAN[0]:
                     if not node.name.startswith("Is"):
                         violations.append([node.name, "Not starting with 'Is'"])
@@ -90,23 +92,27 @@ class VSSTreeNode(Node):  # type: ignore[misc]
             log.info(f"Naming violations: {len(violations)}")
         return violations
 
-    def get_additional_fields(self) -> list[str]:
-        model = self.data
-        defined_fields = model.model_fields.keys()
-        additional_fields = set(model.model_dump().keys()) - set(defined_fields)
-        return list(additional_fields)
-
     def get_additional_attributes(self, allowed: tuple[str]) -> list[str]:
         if allowed:
             log.info(f"Allowed attributes: {list(allowed)}")
         violations = []
         for node in PreOrderIter(self):
-            for field in node.get_additional_fields():
+            for field in node.data.get_additional_fields():
                 if field not in allowed:
                     violations.append([node.name, field])
         if violations:
             log.info(f"Forbidden additional attributes: {len(violations)}")
         return violations
+
+    def as_flat_dict(self, extra_attributes: bool = True) -> dict[str, Any]:
+        data = {}
+        for node in PreOrderIter(self):
+            key = node.get_fqn()
+            data[key] = node.data.as_dict(extra_attributes)
+            if node.uuid:
+                data[key]["uuid"] = node.uuid
+        log.info(f"Elements: {len(data)}")
+        return data
 
 
 def get_expected_parent(name: str) -> str | None:
@@ -135,9 +141,7 @@ def get_root_with_name(roots: list[VSSTreeNode], name: str) -> VSSTreeNode | Non
     return None
 
 
-def expand_instance(root: VSSTreeNode, instance: str) -> None:
-    root_copy = deepcopy(root)
-    root.children = []
+def expand_instance(root: VSSTreeNode, root_copy: VSSTreeNode, instance: str) -> None:
     for i in expand_string(str(instance)):
         new_child = deepcopy(root_copy)
         new_child.parent = root

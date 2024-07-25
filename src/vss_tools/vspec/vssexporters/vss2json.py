@@ -10,6 +10,7 @@
 
 # Convert vspec tree to JSON
 
+from vss_tools.vspec.model import VSSNode, VSSBranch, VSSDatatype
 from vss_tools.vspec.tree import VSSTreeNode
 import json
 from typing import Any
@@ -18,11 +19,29 @@ import vss_tools.vspec.cli_options as clo
 from vss_tools.vspec.vssexporters.utils import get_trees
 from pathlib import Path
 from vss_tools import log
-from vss_tools.vspec.vssexporters.utils import serialize_node_data
+
+
+class ExportVisitor:
+    def export_vss_node(
+        self, node: VSSNode, data: dict[str, Any], extra_attributes: bool
+    ) -> None:
+        data.update(node.as_dict(extra_attributes))
+
+    def export_vss_branch(
+        self, node: VSSBranch, data: dict[str, Any], extra_attributes: bool
+    ) -> None:
+        data.update(node.as_dict(extra_attributes))
+
+    def export_vss_datatype_node(
+        self, node: VSSDatatype, data: dict[str, Any], extra_attributes: bool
+    ) -> None:
+        data.update(node.as_dict(extra_attributes))
 
 
 def get_data(node: VSSTreeNode, extra_attributes: bool = True):
-    data = serialize_node_data(node, extra_attributes)
+    export_visitor = ExportVisitor()
+    data = {}
+    node.data.export(export_visitor, data=data, extra_attributes=extra_attributes)
     if len(node.children) > 0:
         data["children"] = {}
     for child in node.children:
@@ -76,7 +95,6 @@ def cli(
         vspec,
         units,
         types,
-        types_output,
         overlays,
         expand,
     )
