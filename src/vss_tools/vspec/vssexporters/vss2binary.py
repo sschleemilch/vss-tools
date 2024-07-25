@@ -40,7 +40,7 @@ def intToHexChar(hexInt):
         return chr(hexInt - 10 + ord("A"))
 
 
-class ExportVisitor:
+class Exporter:
     def export_vss_branch(
         self,
         vssdata: VSSDataBranch,
@@ -95,7 +95,7 @@ class ExportVisitor:
 
 
 def export_node(cdll: ctypes.CDLL, node: VSSNode, generate_uuid, out_file: str):
-    export_visitor = ExportVisitor()
+    export_visitor = Exporter()
     uuid = "" if node.uuid is None else node.uuid
     node.data.export(
         export_visitor,
