@@ -7,14 +7,15 @@
 # SPDX-License-Identifier: MPL-2.0
 
 from vss_tools import log
-from anytree import findall
+from anytree import findall # type: ignore
 from pathlib import Path
 from vss_tools.vspec.tree import (
     VSSNode,
     build_trees,
+    build_overlay_trees,
     get_root_with_name,
 )
-from vss_tools.vspec.vspec import load_vspec
+from vss_tools.vspec.vspec import VSpec, load_vspec
 from vss_tools.vspec.units_quantities import load_quantities, load_units
 from vss_tools.vspec.datatypes import (
     dynamic_units,
@@ -42,7 +43,11 @@ def get_trees(
     # - Load separately
     # - implmenet VSSTreeNode.merge()
     # - for overlay in overlay_tree: vspec_tree.merge(overlay)
-    vspec_data = load_vspec(include_dirs, [vspec] + list(overlays) + list(types))
+    vspec_data: VSpec = load_vspec(include_dirs, [vspec] + list(types))
+
+    overlay_data: VSpec | None = None
+    if overlays:
+        overlay_data = load_vspec(include_dirs, list(overlays))
 
     if not quantities:
         quantities = (vspec.parent / "quantities.yaml",)
@@ -66,6 +71,17 @@ def get_trees(
         if uuid:
             r.add_uuids()
 
+    overlay_trees = []
+    if overlay_data:
+        log.info("Building overlay trees")
+        overlay_root = build_overlay_trees(overlay_data.data)
+
+        # breakpoint()
+        # for overlay_root in overlay_roots:
+        #     for root in roots:
+        #         if root.name == overlay_root.name:
+        #             root.merge(overlay_root)
+
     if len(roots) > 2:
         log.critical(f"Unexpected amount of roots: {len(roots)}")
         log.critical(f"Roots: {roots}")
@@ -76,6 +92,7 @@ def get_trees(
     if not root:
         log.critical("Did not find 'Vehicle' root.")
         exit(1)
+
 
     if strict or "name-style" in aborts:
         naming_violations = root.get_naming_violations()
