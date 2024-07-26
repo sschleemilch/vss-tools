@@ -24,6 +24,56 @@ from vss_tools.vspec.datatypes import (
 from vss_tools.vspec.model import VSSDataStruct
 
 
+class NameViolationException(Exception):
+    pass
+
+
+class ExtraAttributesException(Exception):
+    pass
+
+
+def load_quantities_and_units(
+    quantities: tuple[Path, ...], units: tuple[Path, ...], vspec_root: Path
+) -> None:
+    if not quantities:
+        quantities = (vspec_root / "quantities.yaml",)
+    if not units:
+        units = (vspec_root / "units.yaml",)
+
+    quantity_data = load_quantities(list(quantities))
+    dynamic_quantities.extend(list(quantity_data.keys()))
+    unit_data = load_units(list(units))
+    for k, v in unit_data.items():
+        dynamic_units[k] = v.allowed_datatypes
+        dynamic_units[v.unit] = v.allowed_datatypes
+
+
+def check_name_violations(root: VSSNode, strict: bool, aborts: tuple[str]) -> None:
+    if strict or "name-style" in aborts:
+        naming_violations = root.get_naming_violations()
+        if naming_violations:
+            for violation in naming_violations:
+                log.error(f"Name violation: '{violation[0]}' ({violation[1]})")
+            raise NameViolationException(
+                f"Name violations detected: {naming_violations}"
+            )
+
+
+def check_extra_attribute_violations(
+    root: VSSNode, strict: bool, aborts: tuple[str], extended_attributes: tuple[str]
+) -> None:
+    if strict or "unknown-attribute" in aborts:
+        extra_attributes = root.get_extra_attributes(extended_attributes)
+        if extra_attributes:
+            for attribute in extra_attributes:
+                log.error(
+                    f"Forbidden extra attribute: '{attribute[0]}':'{attribute[1]}'"
+                )
+            raise ExtraAttributesException(
+                f"Forbidden extra attributes detected: {extra_attributes}"
+            )
+
+
 def get_trees(
     include_dirs: tuple[Path],
     aborts: tuple[str],
@@ -44,17 +94,7 @@ def get_trees(
     # - for overlay in overlay_tree: vspec_tree.merge(overlay)
     vspec_data = load_vspec(include_dirs, [vspec] + list(overlays) + list(types))
 
-    if not quantities:
-        quantities = (vspec.parent / "quantities.yaml",)
-    if not units:
-        units = (vspec.parent / "units.yaml",)
-
-    quantity_data = load_quantities(list(quantities))
-    dynamic_quantities.extend(list(quantity_data.keys()))
-    unit_data = load_units(list(units))
-    for k, v in unit_data.items():
-        dynamic_units[k] = v.allowed_datatypes
-        dynamic_units[v.unit] = v.allowed_datatypes
+    load_quantities_and_units(quantities, units, vspec.parent)
 
     roots, orphans = build_trees(vspec_data.data)
     if orphans:
@@ -78,21 +118,11 @@ def get_trees(
         log.critical("Did not find 'Vehicle' root.")
         exit(1)
 
-    if strict or "name-style" in aborts:
-        naming_violations = root.get_naming_violations()
-        if naming_violations:
-            for violation in naming_violations:
-                log.critical(f"Name violation: '{violation[0]}' ({violation[1]})")
-            exit(1)
-
-    if strict or "unknown-attribute" in aborts:
-        additional_attributes = root.get_additional_attributes(extended_attributes)
-        if additional_attributes:
-            for attribute in additional_attributes:
-                log.critical(
-                    f"Additional forbidden attribute: '{attribute[0]}':'{attribute[1]}'"
-                )
-            exit(1)
+    try:
+        check_name_violations(root, strict, aborts)
+        check_extra_attribute_violations(root, strict, aborts, extended_attributes)
+    except (NameViolationException, ExtraAttributesException):
+        exit(1)
 
     types_root = get_root_with_name(roots, "Types")
 

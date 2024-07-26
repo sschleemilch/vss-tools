@@ -109,7 +109,7 @@ def export_node(
         if print_uuid:
             json_dict[node.name]["x-uuid"] = node.uuid
 
-    for field in node.data.get_additional_fields():
+    for field in node.data.get_extra_attributes():
         json_dict[node.name][field] = getattr(node.data, field)
 
     # Generate child nodes

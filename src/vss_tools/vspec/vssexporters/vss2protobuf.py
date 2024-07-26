@@ -146,7 +146,7 @@ def print_messages(
             if add_optional:
                 data_type = "optional " + data_type
         if static_uid:
-            if "staticUID" not in node.data.get_additional_fields():
+            if "staticUID" not in node.data.get_extra_attributes():
                 log.fatal(
                     (
                         f"Aborting because {node.get_fqn()} does not have the staticUID attribute. "

@@ -7,7 +7,7 @@ from anytree import Node, PreOrderIter, findall
 from copy import deepcopy
 
 from vss_tools import log
-from vss_tools.vspec.model import VSSDataDatatype, get_model, VSSDataBranch
+from vss_tools.vspec.model import VSSDataDatatype, get_vss_data, VSSDataBranch
 from vss_tools.vspec.datatypes import Datatypes
 
 SEPARATOR = "."
@@ -27,7 +27,7 @@ class VSSNode(Node):  # type: ignore[misc]
     def __init__(self, name: str, data: dict[str, Any], **kwargs: Any) -> None:
         super().__init__(name, **kwargs)
         log.debug(f"{self.__class__.__name__}, name={name}")
-        self.data = get_model(data, name)
+        self.data = get_vss_data(data, name)
         self.uuid: str | None = None
 
     def get_fqn(self, sep: str = SEPARATOR) -> str:
@@ -76,7 +76,7 @@ class VSSNode(Node):  # type: ignore[misc]
                 f"Nodes deleted, marked={len(delete_nodes)}, overall={size_before - size_after}"
             )
 
-    def get_naming_violations(self) -> list[str]:
+    def get_naming_violations(self) -> list[list[str]]:
         violations = []
         log.info(f"Checking node name compliance for {self.name}")
         camel_case_pattern = re.compile("[A-Z][A-Za-z0-9]*$")
@@ -87,19 +87,19 @@ class VSSNode(Node):  # type: ignore[misc]
             if isinstance(node.data, VSSDataDatatype):
                 if node.data.datatype == Datatypes.BOOLEAN[0]:
                     if not node.name.startswith("Is"):
-                        violations.append([node.name, "Not starting with 'Is'"])
+                        violations.append([node.get_fqn(), "Not starting with 'Is'"])
         if violations:
             log.info(f"Naming violations: {len(violations)}")
         return violations
 
-    def get_additional_attributes(self, allowed: tuple[str]) -> list[str]:
+    def get_extra_attributes(self, allowed: tuple[str]) -> list[list[str]]:
         if allowed:
             log.info(f"Allowed attributes: {list(allowed)}")
         violations = []
         for node in PreOrderIter(self):
-            for field in node.data.get_additional_fields():
+            for field in node.data.get_extra_attributes():
                 if field not in allowed:
-                    violations.append([node.name, field])
+                    violations.append([node.get_fqn(), field])
         if violations:
             log.info(f"Forbidden additional attributes: {len(violations)}")
         return violations
