@@ -16,8 +16,8 @@ from vss_tools import log
 import rich_click as click
 import vss_tools.vspec.cli_options as clo
 from vss_tools.vspec.tree import VSSNode
+from vss_tools.vspec.utils.misc import getattr_nn
 from vss_tools.vspec.vssexporters.utils import get_trees
-from vss_tools.vspec.model import VSSDataBranch, VSSDataDatatype
 from anytree import PreOrderIter  # type: ignore[import]
 from typing import Any
 
@@ -45,103 +45,30 @@ def get_header(
     return row
 
 
-class Exporter:
-    def export_vss_datatype(
-        self,
-        data: VSSDataDatatype,
-        name: str,
-        rows: list[list[Any]],
-        with_uuid: bool,
-        uuid: str | None,
-        with_instance_column: bool,
-    ):
-        row = [
-            name,
-            data.type.value,
-            data.datatype,
-            "" if data.deprecation is None else data.deprecation,
-            "" if data.unit is None else data.unit,
-            "" if data.min is None else data.min,
-            "" if data.max is None else data.max,
-            data.description,
-            "" if data.comment is None else data.comment,
-            "" if data.allowed is None else data.allowed,
-            "" if data.default is None else data.default,
-        ]
-        if with_uuid:
-            row.append("" if uuid is None else uuid)
-        row.append("")
-        rows.append(row)
-
-    def export_vss_data(
-        self,
-        data: VSSDataBranch,
-        name: str,
-        rows: list[list[Any]],
-        with_uuid: bool,
-        uuid: str | None,
-        with_instance_column: bool,
-    ):
-        row = [
-            name,
-            data.type.value,
-            "",
-            "" if data.deprecation is None else data.deprecation,
-            "",
-            "",
-            "",
-            data.description,
-            "" if data.comment is None else data.comment,
-            "",
-            "",
-        ]
-        if with_uuid:
-            row.append("" if uuid is None else uuid)
-        if with_instance_column:
-            row.append("")
-        rows.append(row)
-
-    def export_vss_branch(
-        self,
-        data: VSSDataBranch,
-        name: str,
-        rows: list[list[Any]],
-        with_uuid: bool,
-        uuid: str | None,
-        with_instance_column: bool,
-    ):
-        row = [
-            name,
-            data.type.value,
-            "",
-            "" if data.deprecation is None else data.deprecation,
-            "",
-            "",
-            "",
-            data.description,
-            "" if data.comment is None else data.comment,
-            "",
-            "",
-        ]
-        if with_uuid:
-            row.append("" if uuid is None else uuid)
-        if with_instance_column:
-            row.append("" if data.instances is None else data.instances)
-        rows.append(row)
-
-
 def add_rows(
     rows: list[list[Any]], root: VSSNode, with_uuid: bool, with_instance_column: bool
 ) -> None:
+    node: VSSNode
     for node in PreOrderIter(root):
-        node.data.export(
-            Exporter(),
-            name=node.get_fqn(),
-            with_uuid=with_uuid,
-            with_instance_column=with_instance_column,
-            uuid=node.uuid,
-            rows=rows,
-        )
+        data = node.data
+        row = [
+            node.get_fqn(),
+            data.type.value,
+            getattr_nn(data, "datatype", ""),
+            getattr_nn(data, "deprecation", ""),
+            getattr_nn(data, "unit", ""),
+            getattr_nn(data, "min", ""),
+            getattr_nn(data, "max", ""),
+            data.description,
+            getattr_nn(data, "comment", ""),
+            getattr_nn(data, "allowed", ""),
+            getattr_nn(data, "default", ""),
+        ]
+        if with_uuid:
+            row.append(getattr_nn(node, "uuid", ""))
+        if with_instance_column:
+            row.append(getattr_nn(data, "instances", ""))
+        rows.append(row)
 
 
 def write_csv(rows: list[list[Any]], output: Path):

@@ -16,8 +16,8 @@ from vss_tools import log
 import vss_tools.vspec.cli_options as clo
 import rich_click as click
 from vss_tools.vspec.tree import VSSNode
+from vss_tools.vspec.utils.misc import getattr_nn
 from vss_tools.vspec.vssexporters.utils import get_trees
-from vss_tools.vspec.model import VSSDataBranch, VSSDataDatatype
 
 
 def allowedString(allowedList):
@@ -40,69 +40,26 @@ def intToHexChar(hexInt):
         return chr(hexInt - 10 + ord("A"))
 
 
-class Exporter:
-    def export_vss_branch(
-        self,
-        vssdata: VSSDataBranch,
-        name: str,
-        output: str,
-        n_children: int,
-        cdll: ctypes.CDLL,
-        uuid: str,
-    ):
-        cdll.createBinaryCnode(
-            output.encode(),
-            name.encode(),
-            vssdata.type.value.encode(),
-            uuid.encode(),
-            vssdata.description.encode(),
-            b"",
-            b"",
-            b"",
-            b"",
-            b"",
-            b"",
-            # TODO: How to handle "validate"? What is it?
-            b"",
-            n_children,
-        )
-
-    def export_vss_datatype(
-        self,
-        vssdata: VSSDataDatatype,
-        name: str,
-        output: str,
-        n_children: int,
-        cdll: ctypes.CDLL,
-        uuid: str,
-    ) -> None:
-        cdll.createBinaryCnode(
-            output.encode(),
-            name.encode(),
-            vssdata.type.value.encode(),
-            uuid.encode(),
-            vssdata.description.encode(),
-            b"" if vssdata.datatype is None else vssdata.datatype.encode(),
-            b"" if vssdata.min is None else str(vssdata.min).encode(),
-            b"" if vssdata.max is None else str(vssdata.max).encode(),
-            b"" if vssdata.unit is None else vssdata.unit.encode(),
-            b"" if vssdata.allowed is None else allowedString(vssdata.allowed).encode(),
-            b"" if vssdata.default is None else str(vssdata.default).encode(),
-            # TODO: How to handle "validate"? What is it?
-            b"",
-            n_children,
-        )
-
-
 def export_node(cdll: ctypes.CDLL, node: VSSNode, generate_uuid, out_file: str):
     uuid = "" if node.uuid is None else node.uuid
-    node.data.export(
-        Exporter(),
-        name=node.name,
-        output=out_file,
-        n_children=len(node.children),
-        cdll=cdll,
-        uuid=uuid,
+    data = node.data
+    cdll.createBinaryCnode(
+        out_file.encode(),
+        node.name.encode(),
+        data.type.value.encode(),
+        uuid.encode(),
+        data.description.encode(),
+        getattr_nn(data, "datatype", "").encode(),
+        str(getattr_nn(data, "min", "")).encode(),
+        str(getattr_nn(data, "max", "")).encode(),
+        getattr_nn(data, "unit", "").encode(),
+        b""
+        if getattr_nn(data, "allowed") is None
+        else allowedString(getattr_nn(data, "allowed")).encode(),
+        str(getattr_nn(data, "default", "")).encode(),
+        # TODO: How to handle "validate"? What is it?
+        b"",
+        len(node.children),
     )
     for child in node.children:
         export_node(cdll, child, generate_uuid, out_file)

@@ -58,9 +58,6 @@ class VSSData(BaseModel):
         additional_fields = set(self.model_dump().keys()) - set(defined_fields)
         return list(additional_fields)
 
-    def export(self, exporter, **kwargs) -> None:
-        exporter.export_vss_data(self, **kwargs)
-
     def as_dict(self, with_extra_attributes: bool = True) -> dict[str, Any]:
         exclude_fields = EXCLUDED_EXPORT_FIELDS
         if not with_extra_attributes:
@@ -92,9 +89,6 @@ class VSSDataBranch(VSSData):
         else:
             assert False, f"{v} is not a valid 'instances' content"
         return result
-
-    def export(self, exporter, **kwargs) -> None:
-        exporter.export_vss_branch(self, **kwargs)
 
 
 class VSSUnit(BaseModel):
@@ -199,9 +193,6 @@ class VSSDataDatatype(VSSData):
     def check_valid_unit(cls, v: str) -> str:
         assert v in dynamic_units, f"{v} is not a valid unit"
         return v
-
-    def export(self, exporter, **kwargs) -> None:
-        exporter.export_vss_datatype(self, **kwargs)
 
 
 class VSSDataProperty(VSSDataDatatype):
