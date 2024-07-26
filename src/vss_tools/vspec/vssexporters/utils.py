@@ -7,14 +7,14 @@
 # SPDX-License-Identifier: MPL-2.0
 
 from vss_tools import log
-from anytree import findall
+from anytree import findall, PreOrderIter  # type: ignore
 from pathlib import Path
 from vss_tools.vspec.tree import (
     VSSNode,
     build_trees,
     get_root_with_name,
 )
-from vss_tools.vspec.vspec import load_vspec
+from vss_tools.vspec.vspec import VSpec, load_vspec
 from vss_tools.vspec.units_quantities import load_quantities, load_units
 from vss_tools.vspec.datatypes import (
     dynamic_units,
@@ -42,7 +42,11 @@ def get_trees(
     # - Load separately
     # - implmenet VSSTreeNode.merge()
     # - for overlay in overlay_tree: vspec_tree.merge(overlay)
-    vspec_data = load_vspec(include_dirs, [vspec] + list(overlays) + list(types))
+    vspec_data: VSpec = load_vspec(include_dirs, [vspec] + list(types))
+
+    overlay_data: VSpec | None = None
+    if overlays:
+        overlay_data = load_vspec(include_dirs, list(overlays))
 
     if not quantities:
         quantities = (vspec.parent / "quantities.yaml",)
@@ -67,6 +71,20 @@ def get_trees(
         if uuid:
             r.add_uuids()
 
+    overlay_roots: list[VSSNode] = []
+    if overlay_data:
+        log.info(f"Building overlay trees from {list(overlays)}")
+        overlay_roots, overlay_orphans = build_trees(overlay_data.data, is_overlay=True)
+
+        if len(overlay_roots) > 1:
+            log.critical(f"Unexpected amount of overlay roots: {len(overlay_roots)}")
+            log.critical(f"Overlay roots: {overlay_roots}")
+            exit(1)
+
+        if overlay_orphans:
+            log.error(f"Overlay has orphans\n{overlay_orphans}")
+            exit(1)
+
     if len(roots) > 2:
         log.critical(f"Unexpected amount of roots: {len(roots)}")
         log.critical(f"Roots: {roots}")
@@ -77,6 +95,10 @@ def get_trees(
     if not root:
         log.critical("Did not find 'Vehicle' root.")
         exit(1)
+
+    if isinstance(root, VSSNode) and overlay_roots:
+        log.info(f"Merging tree with overlay tree")
+        root.merge(overlay_roots[0])
 
     if strict or "name-style" in aborts:
         naming_violations = root.get_naming_violations()
