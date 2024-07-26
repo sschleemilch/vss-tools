@@ -70,17 +70,19 @@ def get_trees(
         if uuid:
             r.add_uuids()
 
+    overlay_roots: list[VSSNode] = []
     if overlay_data:
         log.info(f"Building overlay trees from {list(overlays)}")
         overlay_roots, overlay_orphans = build_trees(overlay_data.data, is_overlay=True)
 
-        # for overlay_root in overlay_roots:
-        #     log.info(f"Overlay root: {overlay_root.name}")
-        #     for node in PreOrderIter(overlay_root):
-        #         print(f"{node=}\n")
-        #     for root in roots:
-        #         if root.name == overlay_root.name:
-        #             root.merge(overlay_root)
+        if len(overlay_roots) > 1:
+            log.critical(f"Unexpected amount of overlay roots: {len(overlay_roots)}")
+            log.critical(f"Overlay roots: {overlay_roots}")
+            exit(1)
+
+        if overlay_orphans:
+            log.error(f"Overlay has orphans\n{overlay_orphans}")
+            exit(1)
 
     if len(roots) > 2:
         log.critical(f"Unexpected amount of roots: {len(roots)}")
