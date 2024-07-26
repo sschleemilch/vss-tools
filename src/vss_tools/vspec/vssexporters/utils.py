@@ -7,12 +7,11 @@
 # SPDX-License-Identifier: MPL-2.0
 
 from vss_tools import log
-from anytree import findall # type: ignore
+from anytree import findall, PreOrderIter # type: ignore
 from pathlib import Path
 from vss_tools.vspec.tree import (
     VSSNode,
     build_trees,
-    build_overlay_trees,
     get_root_with_name,
 )
 from vss_tools.vspec.vspec import VSpec, load_vspec
@@ -71,17 +70,17 @@ def get_trees(
         if uuid:
             r.add_uuids()
 
-    overlay_trees = []
     if overlay_data:
-        log.info("Building overlay trees")
-        overlay_roots = build_overlay_trees(overlay_data.data)
+        log.info(f"Building overlay trees from {list(overlays)}")
+        overlay_roots, overlay_orphans = build_trees(overlay_data.data, is_overlay=True)
 
-        # breakpoint()
         # for overlay_root in overlay_roots:
+        #     log.info(f"Overlay root: {overlay_root.name}")
+        #     for node in PreOrderIter(overlay_root):
+        #         print(f"{node=}\n")
         #     for root in roots:
         #         if root.name == overlay_root.name:
         #             root.merge(overlay_root)
-    breakpoint()
 
     if len(roots) > 2:
         log.critical(f"Unexpected amount of roots: {len(roots)}")
@@ -94,6 +93,9 @@ def get_trees(
         log.critical("Did not find 'Vehicle' root.")
         exit(1)
 
+    if (isinstance(root, VSSNode) and overlay_roots):
+        log.info(f"Merging tree with overlay tree")
+        root.merge(overlay_roots[0])
 
     if strict or "name-style" in aborts:
         naming_violations = root.get_naming_violations()
