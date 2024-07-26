@@ -201,7 +201,14 @@ class VSSDataDatatype(VSSData):
         assert v in dynamic_units, f"{v} is not a valid unit"
         return v
 
-    # TODO: model validator for checking that datatype matches unit.allowed_datatypes
+    @model_validator(mode="after")
+    def check_datatype_matching_allowed_unit_datatypes(self) -> Self:
+        if self.unit:
+            assert any(
+                Datatypes.is_subtype_of(self.datatype.rstrip("[]"), a)
+                for a in dynamic_units[self.unit]
+            ), f"'{self.datatype}' is not allowed for unit '{self.unit}'"
+        return self
 
 
 class VSSDataProperty(VSSDataDatatype):

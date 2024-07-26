@@ -2,7 +2,7 @@ from typing import Any, Callable
 
 dynamic_datatypes: list[str] = []
 dynamic_quantities: list[str] = []
-dynamic_units: list[str] = []
+dynamic_units: dict[str, list] = {}
 
 
 class DatatypesException(Exception):
@@ -89,32 +89,49 @@ def is_numeric(value: Any) -> bool:
 
 
 class Datatypes:
-    UINT8 = "uint8", is_uint8
-    UINT8_ARRAY = "uint8[]", is_uint8
-    INT8 = "int8", is_int8
-    INT8_ARRAY = "int8[]", is_int8
-    UINT16 = "uint16", is_uint16
-    UINT16_ARRAY = "uint16[]", is_uint16
-    INT16 = "int16", is_int16
-    INT16_ARRAY = "int16[]", is_int16
-    UINT32 = "uint32", is_uint32
-    UINT32_ARRAY = "uint32[]", is_uint32
-    INT32 = "int32", is_int32
-    INT32_ARRAY = "int32[]", is_int32
-    UINT64 = "uint64", is_uint64
-    UINT64_ARRAY = "uint64[]", is_uint64
-    INT64 = "int64", is_int64
-    INT64_ARRAY = "int64[]", is_int64
-    BOOLEAN = "boolean", is_bool
-    BOOLEAN_ARRAY = "boolean[]", is_bool
-    FLOAT = "float", is_float
-    FLOAT_ARRAY = "float[]", is_float
-    DOUBLE = "double", is_float
-    DOUBLE_ARRAY = "double[]", is_float
-    STRING = "string", is_string
-    STRING_ARRAY = "string[]", is_string
-    NUMERIC = "numeric", is_numeric
-    NUMERIC_ARRAY = "numeric[]", is_numeric
+    UINT8 = "uint8", is_uint8, []
+    UINT8_ARRAY = "uint8[]", is_uint8, []
+    INT8 = "int8", is_int8, []
+    INT8_ARRAY = "int8[]", is_int8, []
+    UINT16 = "uint16", is_uint16, ["uint8"]
+    UINT16_ARRAY = "uint16[]", is_uint16, ["uint8[]"]
+    INT16 = "int16", is_int16, ["int8"]
+    INT16_ARRAY = "int16[]", is_int16, ["int8[]"]
+    UINT32 = "uint32", is_uint32, ["uint16", "uint8"]
+    UINT32_ARRAY = "uint32[]", is_uint32, ["uint16[]", "uint8[]"]
+    INT32 = "int32", is_int32, ["int16", "int8"]
+    INT32_ARRAY = "int32[]", is_int32, ["int16[]", "int8[]"]
+    UINT64 = "uint64", is_uint64, ["uint32", "uint16", "uint8"]
+    UINT64_ARRAY = "uint64[]", is_uint64, ["uint32[]", "uint16[]", "uint8[]"]
+    INT64 = "int64", is_int64, ["int32", "int16", "int8"]
+    INT64_ARRAY = "int64[]", is_int64, ["int32[]", "int16[]", "int8[]"]
+    BOOLEAN = "boolean", is_bool, []
+    BOOLEAN_ARRAY = "boolean[]", is_bool, []
+    FLOAT = "float", is_float, []
+    FLOAT_ARRAY = "float[]", is_float, []
+    DOUBLE = "double", is_float, []
+    DOUBLE_ARRAY = "double[]", is_float, []
+    STRING = "string", is_string, []
+    STRING_ARRAY = "string[]", is_string, []
+    NUMERIC = (
+        "numeric",
+        is_numeric,
+        ["int64", "int32", "int16", "int8", "uint64", "uint32", "uint16", "uint8"],
+    )
+    NUMERIC_ARRAY = (
+        "numeric[]",
+        is_numeric,
+        [
+            "int64[]",
+            "int32[]",
+            "int16[]",
+            "int8[]",
+            "uint64[]",
+            "uint32[]",
+            "uint16[]",
+            "uint8[]",
+        ],
+    )
     types = [
         UINT8,
         UINT8_ARRAY,
@@ -145,7 +162,7 @@ class Datatypes:
     ]
 
     @classmethod
-    def get_type(cls, datatype: str) -> tuple[str, Callable] | None:
+    def get_type(cls, datatype: str) -> tuple[str, Callable, list[str]] | None:
         for t in cls.types:
             if datatype == t[0]:
                 return t
@@ -157,6 +174,16 @@ class Datatypes:
         if t is None:
             raise DatatypesException(f"Unsupported datatype: {datatype}")
         return t[1](value)
+
+    @classmethod
+    def is_subtype_of(cls, check: str, base: str) -> bool:
+        check_type = cls.get_type(check)
+        if not check_type:
+            raise DatatypesException(f"Not a valid type: '{check}'")
+        base_type = cls.get_type(base)
+        if not base_type:
+            raise DatatypesException(f"Not a valid type: '{base}'")
+        return check in base_type[2] or check == base
 
 
 def get_all_datatypes() -> list[str]:

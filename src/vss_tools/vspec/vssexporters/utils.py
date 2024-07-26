@@ -52,8 +52,9 @@ def get_trees(
     quantity_data = load_quantities(list(quantities))
     dynamic_quantities.extend(list(quantity_data.keys()))
     unit_data = load_units(list(units))
-    dynamic_units.extend(list([unit.unit for unit in unit_data.values()]))
-    dynamic_units.extend(list(unit_data.keys()))
+    for k, v in unit_data.items():
+        dynamic_units[k] = v.allowed_datatypes
+        dynamic_units[v.unit] = v.allowed_datatypes
 
     roots, orphans = build_trees(vspec_data.data)
     if orphans:
