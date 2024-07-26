@@ -7,7 +7,7 @@
 # SPDX-License-Identifier: MPL-2.0
 
 from vss_tools import log
-from anytree import findall, PreOrderIter # type: ignore
+from anytree import findall, PreOrderIter  # type: ignore
 from pathlib import Path
 from vss_tools.vspec.tree import (
     VSSNode,
@@ -95,7 +95,7 @@ def get_trees(
         log.critical("Did not find 'Vehicle' root.")
         exit(1)
 
-    if (isinstance(root, VSSNode) and overlay_roots):
+    if isinstance(root, VSSNode) and overlay_roots:
         log.info(f"Merging tree with overlay tree")
         root.merge(overlay_roots[0])
 
