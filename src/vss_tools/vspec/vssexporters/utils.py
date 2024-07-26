@@ -86,7 +86,7 @@ def get_trees(
             exit(1)
 
     if strict or "unknown-attribute" in aborts:
-        additional_attributes = root.get_additional_attributes(extended_attributes)
+        additional_attributes = root.get_extra_attributes(extended_attributes)
         if additional_attributes:
             for attribute in additional_attributes:
                 log.critical(
