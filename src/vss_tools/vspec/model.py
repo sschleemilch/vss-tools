@@ -146,10 +146,17 @@ class VSSDataDatatype(VSSData):
                     assert (
                         len(self.default) == self.arraysize
                     ), "'default' array size does not match 'arraysize'"
+                for v in self.default:
+                    assert Datatypes.is_datatype(
+                        v, self.datatype
+                    ), f"{v} is not of type {self.datatype}"
             else:
                 assert not isinstance(
                     self.default, list
                 ), f"'default' with type {type(self.default)} does not match datatype '{self.datatype}'"
+                assert Datatypes.is_datatype(
+                    self.default, self.datatype
+                ), f"{self.default} is not of type {self.datatype}"
         return self
 
     @model_validator(mode="after")
@@ -193,6 +200,8 @@ class VSSDataDatatype(VSSData):
     def check_valid_unit(cls, v: str) -> str:
         assert v in dynamic_units, f"{v} is not a valid unit"
         return v
+
+    # TODO: model validator for checking that datatype matches unit.allowed_datatypes
 
 
 class VSSDataProperty(VSSDataDatatype):

@@ -12,6 +12,9 @@ def load_units_or_quantities(
     for file in files:
         log.info(f"Loading {file} ('{class_type.__name__}')")
         content = yaml.safe_load(file.read_text())
+        if not content:
+            log.warning(f"{file}, empty")
+            continue
         log.info(f"Elements loaded: {len(content)}")
         for k, v in content.items():
             try:
