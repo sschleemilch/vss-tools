@@ -7,7 +7,7 @@
 # SPDX-License-Identifier: MPL-2.0
 
 from vss_tools import log
-from anytree import findall
+from anytree import RenderTree, findall
 from pathlib import Path
 from vss_tools.vspec.tree import (
     VSSNode,
@@ -67,7 +67,8 @@ def check_extra_attribute_violations(
         if extra_attributes:
             for attribute in extra_attributes:
                 log.error(
-                    f"Forbidden extra attribute: '{attribute[0]}':'{attribute[1]}'"
+                    f"Forbidden extra attribute: '{
+                        attribute[0]}':'{attribute[1]}'"
                 )
             raise ExtraAttributesException(
                 f"Forbidden extra attributes detected: {extra_attributes}"
@@ -135,4 +136,5 @@ def get_trees(
         if dynamic_datatypes:
             log.info(f"Dynamic datatypes: {len(dynamic_datatypes)}")
 
+    log.debug(RenderTree(root).by_attr())
     return root, types_root

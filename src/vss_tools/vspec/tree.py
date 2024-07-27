@@ -53,10 +53,11 @@ class VSSNode(Node):  # type: ignore[misc]
         while instance_nodes:
             iterations += 1
             for node in instance_nodes:
-                node_copy = deepcopy(node)
+                ref_node = deepcopy(node)
                 node.children = []
+                roots = [node]
                 for instance in node.data.instances:  # type: ignore
-                    expand_instance(node, node_copy, instance)
+                    roots = expand_instance(roots, ref_node, instance)
                 node.data.instances = []  # type: ignore
             instance_nodes = self.get_instance_nodes()
         log.info(f"Instance expand iterations: {iterations}")
@@ -73,7 +74,8 @@ class VSSNode(Node):  # type: ignore[misc]
         size_after = self.size
         if delete_nodes:
             log.info(
-                f"Nodes deleted, marked={len(delete_nodes)}, overall={size_before - size_after}"
+                f"Nodes deleted, marked={len(delete_nodes)}, overall={
+                    size_before - size_after}"
             )
 
     def get_naming_violations(self) -> list[list[str]]:
@@ -140,12 +142,22 @@ def get_root_with_name(roots: list[VSSNode], name: str) -> VSSNode | None:
     return None
 
 
-def expand_instance(root: VSSNode, root_copy: VSSNode, instance: str) -> None:
-    for i in expand_string(str(instance)):
-        new_child = deepcopy(root_copy)
-        new_child.parent = root
-        new_child.name = i
-        new_child.data.instances = []  # type: ignore
+def expand_instance(
+    roots: list[VSSNode], ref_node: VSSNode, instance: str
+) -> list[VSSNode]:
+    expanded_strings = expand_string(str(instance))
+    nodes = []
+    for i in expanded_strings:
+        for root in roots:
+            node = deepcopy(ref_node)
+            node.name = i
+            node.data.instances = []  # type: ignore
+            node.parent = root
+            nodes.append(node)
+    if len(expanded_strings) > 1:
+        return nodes
+    else:
+        return roots
 
 
 def build_trees(data: dict[str, Any]) -> tuple[list[VSSNode], list[VSSNode]]:
@@ -178,38 +190,32 @@ def build_trees(data: dict[str, Any]) -> tuple[list[VSSNode], list[VSSNode]]:
         log.warning(f"Orphans: {len(orphans)}")
     for root in roots:
         root.remove_delete_nodes()
-        log.info(f"Tree, root='{root.name}', size={root.size}, height={root.height}")
+        log.info(f"Tree, root='{root.name}', size={
+                 root.size}, height={root.height}")
     return roots, orphans
 
 
 def expand_string(s: str) -> list[str]:
     """
-    Expands or unrolls a string that has python syntax array
+    Expands or unrolls a string with a range syntax
     definitions inside.
 
-    Example: "abc[1,2]def['A','B']"
+    Example: "abc[1,4]bar"
     Result:
-    - abc1defA
-    - abc1defB
-    - abc2defA
-    - abc2defB
+    - abc1bar
+    - abc2bar
+    - abc3bar
+    - abc4bar
 
     """
-    pattern = r".*(\[.*\]).*"
+    pattern = r".*(\[(\d),(\d)\]).*"
     match = re.match(pattern, s)
     if not match:
         return [s]
-
     expanded = []
-    list_group = match.group(1)
-    try:
-        entries = eval(list_group)
-    except Exception:
-        raise InvalidExpansionEntryException(f"Could not evaluate: '{list_group}'")
-    for entry in entries:
-        expanded_entry = s.replace(list_group, str(entry))
-        if "[" in expanded_entry:
-            expanded.extend(expand_string(expanded_entry))
-        else:
-            expanded.append(expanded_entry)
+    if match.group(2) > match.group(3):
+        raise InvalidExpansionEntryException(f"Invalid range: '{match.group(1)}'")
+    for i in range(int(match.group(2)), int(match.group(3)) + 1):
+        expanded.append(s.replace(match.group(1), str(i)))
+
     return expanded
