@@ -329,7 +329,7 @@ def export_node(
         idl_file_buffer.append(
             ("" if generate_all_idl_features else "//")
             + 'const string type ="'
-            + str(node.data.type)
+            + str(node.data.type.value)
             + '";'
         )
 

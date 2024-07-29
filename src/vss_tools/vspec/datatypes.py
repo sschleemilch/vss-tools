@@ -73,7 +73,7 @@ def is_bool(value: Any) -> bool:
 
 
 def is_float(value: Any) -> bool:
-    return is_x(value, float)
+    return is_x(value, float) or is_x(value, int)
 
 
 def is_string(value: Any) -> bool:

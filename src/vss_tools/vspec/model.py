@@ -20,7 +20,7 @@ from vss_tools.vspec.datatypes import (
     is_array,
 )
 
-EXPORT_EXCLUDE_ATTRIBUTES = ["delete"]
+EXPORT_EXCLUDE_ATTRIBUTES = ["delete", "instantiate"]
 
 
 class ModelException(Exception):

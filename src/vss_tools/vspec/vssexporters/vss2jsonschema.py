@@ -65,11 +65,11 @@ def export_node(
         json_dict[node.name]["type"] = type_map[node.data.datatype]
 
     min = getattr(node.data, "min", None)
-    if min:
+    if min is not None:
         json_dict[node.name]["minimum"] = min
 
     max = getattr(node.data, "max", None)
-    if max:
+    if max is not None:
         json_dict[node.name]["maximum"] = max
 
     allowed = getattr(node.data, "allowed", None)
