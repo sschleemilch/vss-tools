@@ -54,7 +54,7 @@ def load_quantities_and_units(
         dynamic_units[v.unit] = v.allowed_datatypes
 
 
-def check_name_violations(root: VSSNode, strict: bool, aborts: tuple[str]) -> None:
+def check_name_violations(root: VSSNode, strict: bool, aborts: tuple[str, ...]) -> None:
     if strict or "name-style" in aborts:
         naming_violations = root.get_naming_violations()
         if naming_violations:
@@ -66,7 +66,10 @@ def check_name_violations(root: VSSNode, strict: bool, aborts: tuple[str]) -> No
 
 
 def check_extra_attribute_violations(
-    root: VSSNode, strict: bool, aborts: tuple[str], extended_attributes: tuple[str]
+    root: VSSNode,
+    strict: bool,
+    aborts: tuple[str, ...],
+    extended_attributes: tuple[str, ...],
 ) -> None:
     if strict or "unknown-attribute" in aborts:
         extra_attributes = root.get_extra_attributes(extended_attributes)
@@ -82,18 +85,33 @@ def check_extra_attribute_violations(
 
 
 def get_trees(
-    include_dirs: tuple[Path],
-    aborts: tuple[str],
-    strict: bool,
-    extended_attributes: tuple[str],
-    uuid: bool,
-    quantities: tuple[Path, ...],
     vspec: Path,
-    units: tuple[Path, ...],
-    types: tuple[Path, ...],
-    overlays: tuple[Path, ...],
-    expand: bool,
+    include_dirs: tuple[Path, ...] | None = None,
+    aborts: tuple[str, ...] | None = None,
+    strict: bool = False,
+    extended_attributes: tuple[str, ...] | None = None,
+    uuid: bool = False,
+    quantities: tuple[Path, ...] | None = None,
+    units: tuple[Path, ...] | None = None,
+    types: tuple[Path, ...] | None = None,
+    overlays: tuple[Path, ...] | None = None,
+    expand: bool = True,
 ) -> tuple[VSSNode, VSSNode | None]:
+    if include_dirs is None:
+        include_dirs = tuple()
+    if aborts is None:
+        aborts = tuple()
+    if extended_attributes is None:
+        extended_attributes = tuple()
+    if quantities is None:
+        quantities = tuple()
+    if units is None:
+        units = tuple()
+    if types is None:
+        types = tuple()
+    if overlays is None:
+        overlays = tuple()
+
     vspec_data = load_vspec(include_dirs, [vspec] + list(overlays) + list(types))
 
     load_quantities_and_units(quantities, units, vspec.parent)
@@ -115,6 +133,9 @@ def get_trees(
         exit(1)
 
     root = get_root_with_name(roots, "Vehicle")
+
+    if not root and len(roots) == 1:
+        root = roots[0]
 
     if not root:
         log.critical("Did not find 'Vehicle' root.")

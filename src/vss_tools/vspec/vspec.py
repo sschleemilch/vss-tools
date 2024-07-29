@@ -109,7 +109,7 @@ class VSpec:
         deep_update(self.data, other.data)
 
 
-def load_vspec(include_dirs: tuple[Path], specs: list[Path]) -> VSpec:
+def load_vspec(include_dirs: tuple[Path, ...], specs: list[Path]) -> VSpec:
     spec = None
     for s in specs:
         includes = list(include_dirs) + [s.parent]

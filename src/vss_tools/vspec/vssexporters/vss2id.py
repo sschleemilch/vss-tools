@@ -178,17 +178,17 @@ def cli(
     Export as IDs.
     """
     tree, _ = get_trees(
-        include_dirs,
-        aborts,
-        strict,
-        extended_attributes,
-        uuid,
-        quantities,
-        vspec,
-        units,
-        types,
-        overlays,
-        expand,
+        vspec=vspec,
+        include_dirs=include_dirs,
+        aborts=aborts,
+        strict=strict,
+        extended_attributes=extended_attributes,
+        uuid=uuid,
+        quantities=quantities,
+        units=units,
+        types=types,
+        overlays=overlays,
+        expand=expand,
     )
     log.info("Generating vspec output including static UIDs...")
 
@@ -203,17 +203,17 @@ def cli(
         )
 
         validation_tree, _ = get_trees(
-            include_dirs,
-            aborts,
-            strict,
-            extended_attributes,
-            uuid,
-            quantities,
-            validate_static_uid,
-            units,
-            types,
-            tuple(),
-            expand,
+            vspec=validate_static_uid,
+            include_dirs=include_dirs,
+            aborts=aborts,
+            strict=strict,
+            extended_attributes=extended_attributes,
+            uuid=uuid,
+            quantities=quantities,
+            units=units,
+            types=types,
+            overlays=overlays,
+            expand=expand,
         )
         vss2id_val.validate_static_uids(signals_yaml_dict, validation_tree, strict)
 

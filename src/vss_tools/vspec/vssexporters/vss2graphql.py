@@ -176,17 +176,14 @@ def cli(
     Export as GraphQL.
     """
     tree, _ = get_trees(
-        include_dirs,
-        aborts,
-        strict,
-        extended_attributes,
-        False,
-        quantities,
-        vspec,
-        units,
-        tuple(),
-        overlays,
-        True,
+        vspec=vspec,
+        include_dirs=include_dirs,
+        aborts=aborts,
+        strict=strict,
+        extended_attributes=extended_attributes,
+        quantities=quantities,
+        units=units,
+        overlays=overlays,
     )
     log.info("Generating graphql output...")
     outfile = open(output, "w")

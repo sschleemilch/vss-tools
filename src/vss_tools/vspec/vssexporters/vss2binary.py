@@ -112,19 +112,16 @@ def cli(
         ctypes.c_char_p,
         ctypes.c_int,
     )
-
     tree, _ = get_trees(
-        include_dirs,
-        aborts,
-        strict,
-        extended_attributes,
-        uuid,
-        quantities,
-        vspec,
-        units,
-        tuple(),
-        overlays,
-        True,
+        vspec=vspec,
+        include_dirs=include_dirs,
+        aborts=aborts,
+        strict=strict,
+        extended_attributes=extended_attributes,
+        uuid=uuid,
+        quantities=quantities,
+        units=units,
+        overlays=overlays,
     )
     log.info("Generating binary output...")
     export_node(cdll, tree, uuid, str(output))

@@ -107,18 +107,16 @@ def cli(
     Export as Franca.
     """
     print("Generating Franca output...")
-    tree, _ = get_trees(
-        include_dirs,
-        aborts,
-        strict,
-        extended_attributes,
-        uuid,
-        quantities,
-        vspec,
-        units,
-        tuple(),
-        overlays,
-        True,
+    tree, datatype_tree = get_trees(
+        vspec=vspec,
+        include_dirs=include_dirs,
+        aborts=aborts,
+        strict=strict,
+        extended_attributes=extended_attributes,
+        uuid=uuid,
+        quantities=quantities,
+        units=units,
+        overlays=overlays,
     )
     with open(output, "w") as f:
         print_franca_header(f, franca_vss_version)

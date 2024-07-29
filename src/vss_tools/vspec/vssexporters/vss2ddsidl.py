@@ -450,17 +450,16 @@ def cli(
     Export as DDSIDL.
     """
     tree, datatype_tree = get_trees(
-        include_dirs,
-        aborts,
-        strict,
-        extended_attributes,
-        uuid,
-        quantities,
-        vspec,
-        units,
-        types,
-        overlays,
-        True,
+        vspec=vspec,
+        include_dirs=include_dirs,
+        aborts=aborts,
+        strict=strict,
+        extended_attributes=extended_attributes,
+        uuid=uuid,
+        quantities=quantities,
+        units=units,
+        types=types,
+        overlays=overlays,
     )
     log.info("Generating DDS-IDL output...")
 

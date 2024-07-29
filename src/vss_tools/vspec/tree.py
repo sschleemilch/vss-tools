@@ -94,7 +94,7 @@ class VSSNode(Node):  # type: ignore[misc]
             log.info(f"Naming violations: {len(violations)}")
         return violations
 
-    def get_extra_attributes(self, allowed: tuple[str]) -> list[list[str]]:
+    def get_extra_attributes(self, allowed: tuple[str, ...]) -> list[list[str]]:
         if allowed:
             log.info(f"Allowed attributes: {list(allowed)}")
         violations = []

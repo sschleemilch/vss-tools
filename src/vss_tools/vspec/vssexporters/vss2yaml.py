@@ -80,17 +80,17 @@ def cli(
     Export as YAML.
     """
     tree, datatype_tree = get_trees(
-        include_dirs,
-        aborts,
-        strict,
-        extended_attributes,
-        uuid,
-        quantities,
-        vspec,
-        units,
-        types,
-        overlays,
-        expand,
+        vspec=vspec,
+        include_dirs=include_dirs,
+        aborts=aborts,
+        strict=strict,
+        extended_attributes=extended_attributes,
+        uuid=uuid,
+        quantities=quantities,
+        units=units,
+        types=types,
+        overlays=overlays,
+        expand=expand,
     )
     log.info("Generating YAML output...")
     tree_data = tree.as_flat_dict(extend_all_attributes)

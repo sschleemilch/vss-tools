@@ -215,17 +215,15 @@ def cli(
     """
     log.info("Generating protobuf output...")
     tree, datatype_tree = get_trees(
-        include_dirs,
-        aborts,
-        strict,
-        extended_attributes,
-        False,
-        quantities,
-        vspec,
-        units,
-        types,
-        overlays,
-        True,
+        vspec=vspec,
+        include_dirs=include_dirs,
+        aborts=aborts,
+        strict=strict,
+        extended_attributes=extended_attributes,
+        quantities=quantities,
+        units=units,
+        types=types,
+        overlays=overlays,
     )
     if datatype_tree:
         if not types_out_dir:
