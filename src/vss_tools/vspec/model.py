@@ -20,14 +20,10 @@ from vss_tools.vspec.datatypes import (
     is_array,
 )
 
-EXCLUDED_EXPORT_FIELDS = ["delete"]
+EXPORT_EXCLUDE_ATTRIBUTES = ["delete"]
 
 
 class ModelException(Exception):
-    pass
-
-
-class ExportException(Exception):
     pass
 
 
@@ -54,23 +50,18 @@ class VSSData(BaseModel):
     @classmethod
     def check_const_uid_format(cls, v: str) -> str:
         pattern = r"^0x[0-9A-Fa-f]{8}$"
-        assert bool(re.match(pattern, v))
+        assert bool(re.match(pattern, v)), f"'{v}' is not a valid 'constUID'"
         return v
 
-    def get_additional_fields(self) -> list[str]:
+    def get_extra_attributes(self) -> list[str]:
         defined_fields = self.model_fields.keys()
         additional_fields = set(self.model_dump().keys()) - set(defined_fields)
         return list(additional_fields)
 
-    def export(self, visitor, **kwargs) -> None:
-        raise ExportException(
-            f"{self.__class__.__name__}:export() should not be called"
-        )
-
     def as_dict(self, with_extra_attributes: bool = True) -> dict[str, Any]:
-        exclude_fields = []
+        exclude_fields = EXPORT_EXCLUDE_ATTRIBUTES
         if not with_extra_attributes:
-            exclude_fields = EXCLUDED_EXPORT_FIELDS + self.get_additional_fields()
+            exclude_fields.extend(self.get_extra_attributes())
         data = {
             k: v
             for k, v in dict(self).items()
@@ -96,11 +87,8 @@ class VSSDataBranch(VSSData):
                 else:
                     result.append(element)
         else:
-            assert False, f"{v} is not a valid 'instances' content"
+            assert False, f"'{v}' is not a valid 'instances' content"
         return result
-
-    def export(self, visitor, **kwargs) -> None:
-        visitor.export_vss_branch(self, **kwargs)
 
 
 class VSSUnit(BaseModel):
@@ -112,7 +100,7 @@ class VSSUnit(BaseModel):
     @field_validator("quantity")
     @classmethod
     def check_valid_quantity(cls, v: str) -> str:
-        assert v in dynamic_quantities, f"Invalid quantity: {v}"
+        assert v in dynamic_quantities, f"Invalid quantity: '{v}'"
         return v
 
     @field_validator("allowed_datatypes")
@@ -120,7 +108,7 @@ class VSSUnit(BaseModel):
     def check_valid_datatypes(cls, values: list[str]) -> list[str]:
         datatypes = get_all_datatypes()
         for value in values:
-            assert value in datatypes, f"Invalid datatype: {value}"
+            assert value in datatypes, f"Invalid datatype: '{value}'"
         return values
 
 
@@ -153,15 +141,22 @@ class VSSDataDatatype(VSSData):
             if is_array(self.datatype):
                 assert isinstance(
                     self.default, list
-                ), f"'default' with type {type(self.default)} does not match datatype '{self.datatype}'"
+                ), f"'default' with type '{type(self.default)}' does not match datatype '{self.datatype}'"
                 if self.arraysize:
                     assert (
                         len(self.default) == self.arraysize
                     ), "'default' array size does not match 'arraysize'"
+                for v in self.default:
+                    assert Datatypes.is_datatype(
+                        v, self.datatype
+                    ), f"'{v}' is not of type '{self.datatype}'"
             else:
                 assert not isinstance(
                     self.default, list
-                ), f"'default' with type {type(self.default)} does not match datatype '{self.datatype}'"
+                ), f"'default' with type '{type(self.default)}' does not match datatype '{self.datatype}'"
+                assert Datatypes.is_datatype(
+                    self.default, self.datatype
+                ), f"'{self.default}' is not of type '{self.datatype}'"
         return self
 
     @model_validator(mode="after")
@@ -182,7 +177,7 @@ class VSSDataDatatype(VSSData):
             for v in self.allowed:
                 assert Datatypes.is_datatype(
                     v, self.datatype
-                ), f"{v} is not of type {self.datatype}"
+                ), f"{v} is not of type '{self.datatype}'"
         return self
 
     @model_validator(mode="after")
@@ -197,17 +192,23 @@ class VSSDataDatatype(VSSData):
     @field_validator("datatype")
     @classmethod
     def check_datatype(cls, v: str) -> str:
-        assert v in get_all_datatypes(), f"{v} is not a valid datatype"
+        assert v in get_all_datatypes(), f"'{v}' is not a valid datatype"
         return v
 
     @field_validator("unit")
     @classmethod
     def check_valid_unit(cls, v: str) -> str:
-        assert v in dynamic_units, f"{v} is not a valid unit"
+        assert v in dynamic_units, f"'{v}' is not a valid unit"
         return v
 
-    def export(self, visitor, **kwargs) -> None:
-        visitor.export_vss_datatype_node(self, **kwargs)
+    @model_validator(mode="after")
+    def check_datatype_matching_allowed_unit_datatypes(self) -> Self:
+        if self.unit:
+            assert any(
+                Datatypes.is_subtype_of(self.datatype.rstrip("[]"), a)
+                for a in dynamic_units[self.unit]
+            ), f"'{self.datatype}' is not allowed for unit '{self.unit}'"
+        return self
 
 
 class VSSDataProperty(VSSDataDatatype):
@@ -240,7 +241,7 @@ TYPE_CLASS_MAP = {
 }
 
 
-def get_model(data: dict[str, Any], name: str) -> VSSData:
+def get_vss_data(data: dict[str, Any], name: str) -> VSSData:
     try:
         model = VSSData(**data)
         cls = TYPE_CLASS_MAP.get(model.type)
