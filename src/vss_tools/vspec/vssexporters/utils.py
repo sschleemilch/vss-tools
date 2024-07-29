@@ -36,7 +36,13 @@ def load_quantities_and_units(
     quantities: tuple[Path, ...], units: tuple[Path, ...], vspec_root: Path
 ) -> None:
     if not quantities:
-        quantities = (vspec_root / "quantities.yaml",)
+        default_quantity = vspec_root / "quantities.yaml"
+        if default_quantity.exists():
+            quantities = (default_quantity,)
+        else:
+            log.warning(
+                "No quantity files defined and default one does not exist. Quantities will be empty!"
+            )
     if not units:
         units = (vspec_root / "units.yaml",)
 
