@@ -45,6 +45,7 @@ class VSSData(BaseModel):
     deprecation: str | None = None
     constUID: str | None = None
     fka: list[str] = []
+    instantiate: bool = True
 
     @field_validator("constUID")
     @classmethod

@@ -54,7 +54,18 @@ class VSSNode(Node):  # type: ignore[misc]
             iterations += 1
             for node in instance_nodes:
                 ref_node = deepcopy(node)
-                node.children = []
+
+                exclude_children = []
+                include_children = []
+                for c in node.children:
+                    if c.data.instantiate:
+                        include_children.append(c)
+                    else:
+                        exclude_children.append(c)
+
+                node.children = exclude_children
+                ref_node.children = deepcopy(include_children)
+
                 roots = [node]
 
                 instances = getattr(node.data, "instances", [])
@@ -67,6 +78,7 @@ class VSSNode(Node):  # type: ignore[misc]
                 node.data.instances = []  # type: ignore
                 for leaf in findall(node, filter_=lambda n: n.is_leaf):
                     leaf.children = deepcopy(ref_node.children)
+
             instance_nodes = self.get_instance_nodes()
         log.info(f"Instance expand iterations: {iterations}")
 
@@ -225,14 +237,13 @@ def expand_string(s: str) -> list[str]:
     - abc4bar
 
     """
-    pattern = r".*(\[(\d),(\d)\]).*"
+    pattern = r".*(\[(\d+),(\d+)\]).*"
     match = re.match(pattern, s)
     if not match:
         return [s]
     expanded = []
-    if match.group(2) > match.group(3):
+    if int(match.group(2)) > int(match.group(3)):
         raise InvalidExpansionEntryException(f"Invalid range: '{match.group(1)}'")
     for i in range(int(match.group(2)), int(match.group(3)) + 1):
         expanded.append(s.replace(match.group(1), str(i)))
-
     return expanded
