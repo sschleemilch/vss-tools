@@ -89,10 +89,10 @@ def is_numeric(value: Any) -> bool:
 
 
 class Datatypes:
-    UINT8 = "uint8", is_uint8, []
-    UINT8_ARRAY = "uint8[]", is_uint8, []
-    INT8 = "int8", is_int8, []
-    INT8_ARRAY = "int8[]", is_int8, []
+    UINT8: tuple[str, Callable[[Any], bool], list[str]] = "uint8", is_uint8, []
+    UINT8_ARRAY: tuple[str, Callable[[Any], bool], list[str]] = "uint8[]", is_uint8, []
+    INT8: tuple[str, Callable[[Any], bool], list[str]] = "int8", is_int8, []
+    INT8_ARRAY: tuple[str, Callable[[Any], bool], list[str]] = "int8[]", is_int8, []
     UINT16 = "uint16", is_uint16, ["uint8"]
     UINT16_ARRAY = "uint16[]", is_uint16, ["uint8[]"]
     INT16 = "int16", is_int16, ["int8"]
@@ -105,14 +105,26 @@ class Datatypes:
     UINT64_ARRAY = "uint64[]", is_uint64, ["uint32[]", "uint16[]", "uint8[]"]
     INT64 = "int64", is_int64, ["int32", "int16", "int8"]
     INT64_ARRAY = "int64[]", is_int64, ["int32[]", "int16[]", "int8[]"]
-    BOOLEAN = "boolean", is_bool, []
-    BOOLEAN_ARRAY = "boolean[]", is_bool, []
-    FLOAT = "float", is_float, []
-    FLOAT_ARRAY = "float[]", is_float, []
-    DOUBLE = "double", is_float, []
-    DOUBLE_ARRAY = "double[]", is_float, []
-    STRING = "string", is_string, []
-    STRING_ARRAY = "string[]", is_string, []
+    BOOLEAN: tuple[str, Callable[[Any], bool], list[str]] = "boolean", is_bool, []
+    BOOLEAN_ARRAY: tuple[str, Callable[[Any], bool], list[str]] = (
+        "boolean[]",
+        is_bool,
+        [],
+    )
+    FLOAT: tuple[str, Callable[[Any], bool], list[str]] = "float", is_float, []
+    FLOAT_ARRAY: tuple[str, Callable[[Any], bool], list[str]] = "float[]", is_float, []
+    DOUBLE: tuple[str, Callable[[Any], bool], list[str]] = "double", is_float, []
+    DOUBLE_ARRAY: tuple[str, Callable[[Any], bool], list[str]] = (
+        "double[]",
+        is_float,
+        [],
+    )
+    STRING: tuple[str, Callable[[Any], bool], list[str]] = "string", is_string, []
+    STRING_ARRAY: tuple[str, Callable[[Any], bool], list[str]] = (
+        "string[]",
+        is_string,
+        [],
+    )
     NUMERIC = (
         "numeric",
         is_numeric,

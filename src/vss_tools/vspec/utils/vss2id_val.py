@@ -108,7 +108,7 @@ def validate_static_uids(signals_dict: dict, validation_tree: VSSNode, strict: b
             if len(matched_uids) == 0:
                 semantic_match = check_semantics(key, value, strict)
                 if semantic_match is None:
-                    key_found: bool = False
+                    key_found = False
                     for i, node in enumerate(validation_tree_nodes):
                         if key == node.qualified_name():
                             key_found = True

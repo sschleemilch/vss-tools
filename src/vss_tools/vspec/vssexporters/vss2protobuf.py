@@ -110,7 +110,6 @@ def traverse_signal_tree(
     write_imports(fd, imports)
 
     # write proto messages to file
-    node: VSSNode
     for node in findall(
         tree, filter_=lambda node: isinstance(node.data, VSSDataBranch)
     ):
@@ -130,7 +129,7 @@ def write_imports(fd: TextIOWrapper, imports: list[str]):
 def print_messages(
     nodes: tuple[VSSNode], fd: TextIOWrapper, static_uid: bool, add_optional: bool
 ):
-    usedKeys = {}
+    usedKeys: dict[int, str] = {}
     for i, node in enumerate(nodes, 1):
         if isinstance(node.data, VSSDataDatatype):
             dt_val = node.data.datatype
