@@ -15,7 +15,7 @@ from vss_tools.vspec.model import VSSDataDatatype
 from vss_tools.vspec.tree import VSSNode
 from vss_tools.vspec.vssexporters.utils import get_trees
 from pathlib import Path
-from vss_tools.vspec.utils.stringstyle import camel_back
+from vss_tools.vspec.utils.misc import camel_back
 from typing import Dict
 from vss_tools.vspec.datatypes import Datatypes
 

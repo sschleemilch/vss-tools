@@ -12,7 +12,7 @@ from typing import Optional
 
 from anytree import PreOrderIter  # type: ignore
 
-from vss_tools.vspec.model.vsstree import VSSNode
+from vss_tools.vspec.tree import VSSNode
 from vss_tools.vspec.utils.idgen_utils import fnv1_32_wrapper
 
 
@@ -29,13 +29,13 @@ def validate_static_uids(signals_dict: dict, validation_tree: VSSNode, strict: b
         validation_node: VSSNode = validation_tree_nodes[match_tuple[1]]
 
         try:
-            assert v["description"] == validation_node.description
+            assert v["description"] == validation_node.data.description
 
         except AssertionError:
             log.warning(
                 "[Validation] "
                 f"DESCRIPTION MISMATCH: The description of {k} has changed from "
-                f"\n\t   Validation: '{validation_node.description}' to \n\t   Current "
+                f"\n\t   Validation: '{validation_node.data.description}' to \n\t   Current "
                 f"vspec: '{v['description']}'"
             )
 

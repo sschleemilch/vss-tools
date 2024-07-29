@@ -11,18 +11,17 @@
 # Generate IDs of 4bytes size, 3 bytes incremental value + 1 byte for layer id.
 
 import sys
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Any
 
 import yaml
 
+from vss_tools.vspec.utils.misc import getattr_nn
 from vss_tools.vspec.vssexporters.utils import get_trees
 import rich_click as click
 import vss_tools.vspec.cli_options as clo
 from pathlib import Path
 from vss_tools import log
-from vss_tools.vspec import load_tree
-from vss_tools.vspec.model.constants import VSSTreeType
-from vss_tools.vspec.model.vsstree import VSSNode
+from vss_tools.vspec.tree import VSSNode
 from vss_tools.vspec.utils import vss2id_val
 from vss_tools.vspec.utils.idgen_utils import (
     fnv1_32_hash,
@@ -42,18 +41,24 @@ def generate_split_id(
     @return: tuple of hashed string and id counter
     """
 
-    if hasattr(node, "fka") and node.fka:
-        name = node.fka[0] if isinstance(node.fka, list) else node.fka
+    fka = getattr(node.data, "fka", None)
+    if fka:
+        name = fka[0] if isinstance(fka, list) else fka
     else:
-        name = node.qualified_name()
+        name = node.get_fqn()
+    datatype = getattr_nn(node.data, "datatype", "")
+    unit = getattr_nn(node.data, "unit", "")
+    allowed = getattr_nn(node.data, "allowed", "")
+    min = getattr_nn(node.data, "min", "")
+    max = getattr_nn(node.data, "max", "")
     identifier = get_node_identifier_bytes(
         name,
-        node.data_type_str,
-        node.type.value,
-        node.get_unit(),
-        node.allowed,
-        node.min,
-        node.max,
+        datatype,
+        node.data.type.value,
+        unit,
+        allowed,
+        min,
+        max,
         strict_mode,
     )
     hashed_str = format(fnv1_32_hash(identifier), "08X")
@@ -61,10 +66,12 @@ def generate_split_id(
     return hashed_str, id_counter + 1
 
 
-def export_node(yaml_dict, node, id_counter, strict_mode: bool) -> Tuple[int, int]:
+def export_node(
+    data: dict[str, Any], node: VSSNode, id_counter, strict_mode: bool
+) -> Tuple[int, int]:
     """Recursive function to export the full tree to a dict
 
-    @param yaml_dict: the to be exported dict
+    @param data: the to be exported dict
     @param node: parent node of the tree
     @param id_counter: counter for amount of ids
     @param strict_mode: strict mode means case sensitivity for static UID generation
@@ -72,58 +79,57 @@ def export_node(yaml_dict, node, id_counter, strict_mode: bool) -> Tuple[int, in
     """
 
     node_id: str
-    if not node.constUID:
-        node_id, id_counter = generate_split_id(node, id_counter, strict_mode)
-        node_id = f"0x{node_id}"
-    else:
+    if node.data.constUID:
         log.info(
-            f"Using const ID for {node.qualified_name()}. If you didn't mean "
+            f"Using const ID for {node.get_fqn()}. If you didn't mean "
             "to do that you can remove it in your vspec / overlay."
         )
-        node_id = node.constUID
-
-    assert node_id.startswith("0x"), f"Node ID has to begin with '0x': {node_id}"
-    assert len(node_id) == 10, f"Invalid node ID: {node_id}"
+        node_id = node.data.constUID
+    else:
+        node_id, id_counter = generate_split_id(node, id_counter, strict_mode)
+        node_id = f"0x{node_id}"
 
     # check for hash duplicates
-    for key, value in get_all_keys_values(yaml_dict):
+    for key, value in get_all_keys_values(data):
         if not isinstance(value, dict) and key == "staticUID":
             if node_id == value:
                 log.fatal(
                     f"There is a small chance that the result of FNV-1 "
                     f"hashes are the same in this case the hash of node "
-                    f"'{node.qualified_name()}' is the same as another hash."
+                    f"'{node.get_fqn()}' is the same as another hash."
                     f"Can you please update it."
                 )
                 # We could add handling of duplicates here
                 sys.exit(-1)
 
-    node_path = node.qualified_name()
+    node_path = node.get_fqn()
 
-    yaml_dict[node_path] = {"staticUID": f"{node_id}"}
-    yaml_dict[node_path]["description"] = node.description
-    yaml_dict[node_path]["type"] = str(node.type.value)
-    if node.unit:
-        yaml_dict[node_path]["unit"] = str(node.unit.value)
-    if node.is_signal() or node.is_property():
-        yaml_dict[node_path]["datatype"] = node.data_type_str
-    if node.allowed:
-        yaml_dict[node_path]["allowed"] = node.allowed
-    if isinstance(node.min, int | float):
-        yaml_dict[node_path]["min"] = node.min
-    if isinstance(node.max, int | float):
-        yaml_dict[node_path]["max"] = node.max
+    data[node_path] = {"staticUID": f"{node_id}"}
+    data[node_path]["description"] = node.data.description
+    data[node_path]["type"] = str(node.data.type.value)
+    if hasattr(node.data, "unit"):
+        data[node_path]["unit"] = getattr(node.data, "unit")
+    if hasattr(node.data, "datatype"):
+        data[node_path]["datatype"] = getattr(node.data, "datatype")
+    if hasattr(node.data, "allowed"):
+        data[node_path]["allowed"] = getattr(node.data, "allowed")
 
-    if node.fka:
-        yaml_dict[node_path]["fka"] = node.fka
-    elif "fka" in node.extended_attributes.keys():
-        yaml_dict[node_path]["fka"] = node.extended_attributes["fka"]
+    min = getattr(node.data, "min", None)
+    if min is not None:
+        data[node_path]["min"] = min
+    max = getattr(node.data, "max", None)
+    if max is not None:
+        data[node_path]["max"] = max
 
-    if node.deprecation:
-        yaml_dict[node_path]["deprecation"] = node.deprecation
+    fka = getattr(node.data, "fka", None)
+    if fka:
+        data[node_path]["fka"] = fka
+
+    if node.data.deprecation:
+        data[node_path]["deprecation"] = node.data.deprecation
 
     for child in node.children:
-        id_counter, id_counter = export_node(yaml_dict, child, id_counter, strict_mode)
+        id_counter, id_counter = export_node(data, child, id_counter, strict_mode)
 
     return id_counter, id_counter
 
@@ -141,7 +147,6 @@ def export_node(yaml_dict, node, id_counter, strict_mode: bool) -> Tuple[int, in
 @clo.quantities_opt
 @clo.units_opt
 @clo.types_opt
-@clo.types_output_opt
 @click.option(
     "--validate-static-uid",
     type=click.Path(dir_okay=False, readable=True, exists=True),
@@ -166,7 +171,6 @@ def cli(
     quantities: tuple[Path],
     units: tuple[Path],
     types: tuple[Path],
-    types_output: Path,
     validate_static_uid: Path,
     validate_only: bool,
     case_sensitive: bool,
@@ -174,7 +178,7 @@ def cli(
     """
     Export as IDs.
     """
-    tree, datatype_tree = get_trees(
+    tree, _ = get_trees(
         include_dirs,
         aborts,
         strict,
@@ -184,7 +188,6 @@ def cli(
         vspec,
         units,
         types,
-        types_output,
         overlays,
         expand,
     )
@@ -200,8 +203,18 @@ def cli(
             f"file '{validate_static_uid}'"
         )
 
-        validation_tree = load_tree(
-            str(validate_static_uid), ["."], tree_type=VSSTreeType.SIGNAL_TREE
+        validation_tree, _ = get_trees(
+            include_dirs,
+            aborts,
+            strict,
+            extended_attributes,
+            uuid,
+            quantities,
+            validate_static_uid,
+            units,
+            types,
+            tuple(),
+            expand,
         )
         vss2id_val.validate_static_uids(signals_yaml_dict, validation_tree, strict)
 
