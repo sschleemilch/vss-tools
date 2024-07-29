@@ -77,13 +77,17 @@ Note that not all exporters support that arugment
 
 > [!WARNING]
 > The UUID feature is deprecated and will be removed in VSS-tools 6.0.
-> If you need identifiers consider using [vspec2id](vspec2id.md)
+> If you need identifiers consider using [vspec id exporter](id.md)
 
 ### --expand/--no-expand
 
 By default all tools expand instance information so that instance information like "Row1" become a branch just like
 any other branch. If this argument is used and the exporter supports it no expansion will take place.
 Instead instance information will be kept as additional information for the branch.
+
+### -e, --extended-attributes
+
+See section on [overlays](vspec.md#handling-of-overlays-and-extensions) below
 
 ## Handling of Data Types
 
@@ -306,11 +310,16 @@ Warning: Attribute(s) quality, source in element Speed not a core or known exten
 You asked for strict checking. Terminating.
 ```
 
-You can whitelist extended metadata attributes using the `-e` parameter:
+You can whitelist extended metadata attributes using the `-e` / `--extended-attributes` argument.
 
 ```bash
-vspec export json -I spec spec/VehicleSignalSpecification.vspec -e quality -e source -l overlay.vspec --output test.json
+vspec export json -I spec -s spec/VehicleSignalSpecification.vspec -e quality -e source -l overlay.vspec -o test.json
+vspec export json -I spec --vspec spec/VehicleSignalSpecification.vspec --extended-attributes quality --extended-attributes source --overlays overlay.vspec --output test.json
 ```
+
+> [!NOTE]
+> A comma separated list of attributes can no longer be used to specify extended attributes!
+> Instead of using for example `-e a1,a2` you must use `-e a1 -e a2`!
 
 In this case the expectation is, that the generated output will contain the whitelisted extended metadata attributes, if the exporter supports them.
 
@@ -368,7 +377,7 @@ The DDS-IDL exporter never generates uuid, i.e. the `--uuid` option has no effec
 The Graphql exporter never generates uuid, i.e. the `--uuid` option has no effect.
 
 ### --all-idl-features
-Will also generate non-payload const attributes such as unit/datatype. Default is not to generate them/comment them out because at least Cyclone DDS and FastDDS do not support const. For more information check the [DDS-IDL exporter docs](VSS2DDSIDL.md).
+Will also generate non-payload const attributes such as unit/datatype. Default is not to generate them/comment them out because at least Cyclone DDS and FastDDS do not support const. For more information check the [DDS-IDL exporter docs](ddsidl.md).
 
 ## GRAPHQL exporter notes
 
