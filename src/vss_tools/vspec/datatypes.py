@@ -153,6 +153,8 @@ class Datatypes:
             "uint32[]",
             "uint16[]",
             "uint8[]",
+            "float[]",
+            "double[]",
         ],
     )
     types = [

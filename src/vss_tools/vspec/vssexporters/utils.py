@@ -44,7 +44,13 @@ def load_quantities_and_units(
                 "No quantity files defined and default one does not exist. Quantities will be empty!"
             )
     if not units:
-        units = (vspec_root / "units.yaml",)
+        default_unit = vspec_root / "units.yaml"
+        if default_unit.exists():
+            units = (default_unit,)
+        else:
+            log.warning(
+                "No unit files defined and default one does not exist. Units will be empty!"
+            )
 
     quantity_data = load_quantities(list(quantities))
     dynamic_quantities.extend(list(quantity_data.keys()))

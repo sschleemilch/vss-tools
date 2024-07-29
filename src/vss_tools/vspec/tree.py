@@ -56,9 +56,17 @@ class VSSNode(Node):  # type: ignore[misc]
                 ref_node = deepcopy(node)
                 node.children = []
                 roots = [node]
-                for instance in node.data.instances:  # type: ignore
+
+                instances = getattr(node.data, "instances", [])
+                if isinstance(instances, str):
+                    instances = [instances]
+
+                for instance in instances:
                     roots = expand_instance(roots, ref_node, instance)
+
                 node.data.instances = []  # type: ignore
+                for leaf in findall(node, filter_=lambda n: n.is_leaf):
+                    leaf.children = deepcopy(ref_node.children)
             instance_nodes = self.get_instance_nodes()
         log.info(f"Instance expand iterations: {iterations}")
 
@@ -143,18 +151,27 @@ def get_root_with_name(roots: list[VSSNode], name: str) -> VSSNode | None:
 
 
 def expand_instance(
-    roots: list[VSSNode], ref_node: VSSNode, instance: str
+    roots: list[VSSNode], ref_node: VSSNode, instance: list[str] | str
 ) -> list[VSSNode]:
-    expanded_strings = expand_string(str(instance))
+    requested_instances = []
+    if isinstance(instance, list):
+        requested_instances = instance
+    else:
+        requested_instances = [instance]
+
+    new_node_names = []
+    for i in requested_instances:
+        new_node_names.extend(expand_string(str(i)))
     nodes = []
-    for i in expanded_strings:
+    for i in new_node_names:
         for root in roots:
             node = deepcopy(ref_node)
             node.name = i
             node.data.instances = []  # type: ignore
             node.parent = root
+            node.children = []
             nodes.append(node)
-    if len(expanded_strings) > 1:
+    if len(new_node_names) > 1 or isinstance(instance, list):
         return nodes
     else:
         return roots

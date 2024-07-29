@@ -76,19 +76,10 @@ class VSSDataBranch(VSSData):
 
     @field_validator("instances")
     @classmethod
-    def fill_instances(cls, v: Any) -> list[str]:
-        result = []
-        if isinstance(v, str):
-            result = [v]
-        elif isinstance(v, list):
-            for element in v:
-                if isinstance(element, list):
-                    result.extend(element)
-                else:
-                    result.append(element)
-        else:
+    def fill_instances(cls, v: Any) -> list[str] | str:
+        if not (isinstance(v, str) or isinstance(v, list)):
             assert False, f"'{v}' is not a valid 'instances' content"
-        return result
+        return v
 
 
 class VSSUnit(BaseModel):
