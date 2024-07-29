@@ -11,6 +11,7 @@ import subprocess
 
 HERE = Path(__file__).resolve().parent
 TEST_UNITS = HERE / ".." / "vspec" / "test_units.yaml"
+TEST_QUANT = HERE / ".." / "vspec" / "test_quantities.yaml"
 
 
 def test_ddsldl(tmp_path):
@@ -21,7 +22,7 @@ def test_ddsldl(tmp_path):
     generated_idl_file = tmp_path / "test.idl"
     generated_python_file = tmp_path / "A/_test.py"
 
-    cmd = f"vspec export ddsidl -u {TEST_UNITS} -s {HERE / 'test.vspec'} -o {generated_idl_file}"
+    cmd = f"vspec export ddsidl -u {TEST_UNITS} -q {TEST_QUANT} -s {HERE / 'test.vspec'} -o {generated_idl_file}"
     subprocess.run(cmd.split(), check=True)
     cmd = "idlc -l py test.idl"
     subprocess.run(cmd.split(), check=True, cwd=tmp_path)
