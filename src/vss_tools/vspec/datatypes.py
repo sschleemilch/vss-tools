@@ -128,7 +128,18 @@ class Datatypes:
     NUMERIC = (
         "numeric",
         is_numeric,
-        ["int64", "int32", "int16", "int8", "uint64", "uint32", "uint16", "uint8"],
+        [
+            "int64",
+            "int32",
+            "int16",
+            "int8",
+            "uint64",
+            "uint32",
+            "uint16",
+            "uint8",
+            "float",
+            "double",
+        ],
     )
     NUMERIC_ARRAY = (
         "numeric[]",

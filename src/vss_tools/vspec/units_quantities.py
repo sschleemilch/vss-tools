@@ -10,7 +10,7 @@ def load_units_or_quantities(
 ) -> dict[str, VSSUnit | VSSQuantity]:
     data = {}
     for file in files:
-        log.info(f"Loading {file} ('{class_type.__name__}')")
+        log.info(f"Loading '{class_type.__name__}' file: {file.absolute()}")
         content = yaml.safe_load(file.read_text())
         if not content:
             log.warning(f"{file}, empty")

@@ -7,7 +7,7 @@
 # SPDX-License-Identifier: MPL-2.0
 
 from vss_tools import log
-from anytree import RenderTree, findall
+from anytree import findall
 from pathlib import Path
 from vss_tools.vspec.tree import (
     VSSNode,
@@ -137,5 +137,4 @@ def get_trees(
         if dynamic_datatypes:
             log.info(f"Dynamic datatypes: {len(dynamic_datatypes)}")
 
-    log.debug(RenderTree(root).by_attr())
     return root, types_root

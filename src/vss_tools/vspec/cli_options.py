@@ -56,7 +56,8 @@ strict_opt = option(
     "--strict/--no-strict",
     help="Whether to enable strict. Enables all '--abort/-a' values.",
     default=False,
-    show_default=True)
+    show_default=True,
+)
 
 aborts_opt = option(
     "--aborts",
@@ -67,10 +68,15 @@ aborts_opt = option(
     show_choices=True,
 )
 
-uuid_opt = option("--uuid/--no-uuid", help="Whether to add UUIDs.", show_default=True, default=False)
+uuid_opt = option(
+    "--uuid/--no-uuid", help="Whether to add UUIDs.", show_default=True, default=False
+)
 
 expand_opt = option(
-    "--expand/--no-expand", default=True, show_default=True, help="Whether to expand 'instances'."
+    "--expand/--no-expand",
+    default=True,
+    show_default=True,
+    help="Whether to expand 'instances'.",
 )
 
 overlays_opt = option(
@@ -102,7 +108,7 @@ vspec_opt = option(
     "-s",
     type=click.Path(dir_okay=False, readable=True, path_type=Path, exists=True),
     required=True,
-    help="The vspec file."
+    help="The vspec file.",
 )
 
 output_required_opt = option(
@@ -110,7 +116,14 @@ output_required_opt = option(
     "-o",
     type=click.Path(dir_okay=False, writable=True, path_type=Path),
     help="Output file.",
-    required=True
+    required=True,
+)
+
+output_opt = option(
+    "--output",
+    "-o",
+    type=click.Path(dir_okay=False, writable=True, path_type=Path),
+    help="Output file.",
 )
 
 types_opt = option(
@@ -141,7 +154,9 @@ extend_all_attributes_opt = option(
         not only the ones given via '-e/--extended-attributes'
     """,
     default=False,
-    show_default=True
+    show_default=True,
 )
 
-pretty_print_opt = option("--pretty/--no-pretty", help="Pretty print.", default=False, show_default=True)
+pretty_print_opt = option(
+    "--pretty/--no-pretty", help="Pretty print.", default=False, show_default=True
+)

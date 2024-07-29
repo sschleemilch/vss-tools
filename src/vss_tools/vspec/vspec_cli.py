@@ -47,6 +47,7 @@ def cli(ctx: click.Context, log_level: str, log_file: Path):
         "jsonschema": "vss_tools.vspec.vssexporters.vss2jsonschema:cli",
         "protobuf": "vss_tools.vspec.vssexporters.vss2protobuf:cli",
         "yaml": "vss_tools.vspec.vssexporters.vss2yaml:cli",
+        "tree": "vss_tools.vspec.vssexporters.vss2tree:cli",
     },
 )
 @click.pass_context
