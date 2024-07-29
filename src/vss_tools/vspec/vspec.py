@@ -82,6 +82,8 @@ class VSpec:
         self.content = source.read_text()
 
         self.data = yaml.safe_load(self.content)
+        if self.data is None:
+            self.data = {}
         if prefix:
             tmp_data = {}
             for k, v in self.data.items():

@@ -94,11 +94,6 @@ def get_trees(
     overlays: tuple[Path, ...],
     expand: bool,
 ) -> tuple[VSSNode, VSSNode | None]:
-    # BUG: Overlay cannot overwrite Branch that has instances correctly!!
-    # Probably best:
-    # - Load separately
-    # - implmenet VSSTreeNode.merge()
-    # - for overlay in overlay_tree: vspec_tree.merge(overlay)
     vspec_data = load_vspec(include_dirs, [vspec] + list(overlays) + list(types))
 
     load_quantities_and_units(quantities, units, vspec.parent)
