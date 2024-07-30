@@ -115,8 +115,6 @@ class VSSNode(Node):  # type: ignore[misc]
         return violations
 
     def get_extra_attributes(self, allowed: tuple[str, ...]) -> list[list[str]]:
-        if allowed:
-            log.info(f"Allowed extra attributes: {list(allowed)}")
         violations = []
         for node in PreOrderIter(self):
             for field in node.data.get_extra_attributes():

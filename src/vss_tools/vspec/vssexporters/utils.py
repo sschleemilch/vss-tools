@@ -77,14 +77,16 @@ def check_extra_attribute_violations(
     aborts: tuple[str, ...],
     extended_attributes: tuple[str, ...],
 ) -> None:
+    if extended_attributes:
+        log.info(f"User defined extra attributes: {extended_attributes}")
+    extra_attributes = root.get_extra_attributes(extended_attributes)
+    for attribute in extra_attributes:
+        log.warning(
+            f"Unknown extra attribute: '{
+                attribute[0]}':'{attribute[1]}'"
+        )
     if strict or "unknown-attribute" in aborts:
-        extra_attributes = root.get_extra_attributes(extended_attributes)
         if extra_attributes:
-            for attribute in extra_attributes:
-                log.error(
-                    f"Forbidden extra attribute: '{
-                        attribute[0]}':'{attribute[1]}'"
-                )
             raise ExtraAttributesException(
                 f"Forbidden extra attributes detected: {extra_attributes}"
             )
@@ -92,36 +94,44 @@ def check_extra_attribute_violations(
 
 def get_trees(
     vspec: Path,
-    include_dirs: tuple[Path, ...] | None = None,
-    aborts: tuple[str, ...] | None = None,
+    include_dirs: tuple[Path, ...] = tuple(),
+    aborts: tuple[str, ...] = tuple(),
     strict: bool = False,
-    extended_attributes: tuple[str, ...] | None = None,
+    extended_attributes: tuple[str, ...] = tuple(),
     uuid: bool = False,
-    quantities: tuple[Path, ...] | None = None,
-    units: tuple[Path, ...] | None = None,
-    types: tuple[Path, ...] | None = None,
-    overlays: tuple[Path, ...] | None = None,
+    quantities: tuple[Path, ...] = tuple(),
+    units: tuple[Path, ...] = tuple(),
+    types: tuple[Path, ...] = tuple(),
+    overlays: tuple[Path, ...] = tuple(),
     expand: bool = True,
 ) -> tuple[VSSNode, VSSNode | None]:
-    if include_dirs is None:
-        include_dirs = tuple()
-    if aborts is None:
-        aborts = tuple()
-    if extended_attributes is None:
-        extended_attributes = tuple()
-    if quantities is None:
-        quantities = tuple()
-    if units is None:
-        units = tuple()
-    if types is None:
-        types = tuple()
-    if overlays is None:
-        overlays = tuple()
-
-    vspec_data = load_vspec(include_dirs, [vspec] + list(overlays) + list(types))
-
     load_quantities_and_units(quantities, units, vspec.parent)
+    log.info(dynamic_units)
 
+    types_root = None
+    if types:
+        vspec_types_data = load_vspec(include_dirs, list(types))
+        types_roots, types_orphans = build_trees(vspec_types_data.data)
+        if types_orphans:
+            log.error(f"Types model has orphans\n{types_orphans}")
+            exit(1)
+        if len(types_roots) > 1:
+            log.critical(f"Unexpected amount of type roots: {
+                         len(types_roots)}")
+            log.critical(f"Types roots: {types_roots}")
+            exit(1)
+        types_root = get_root_with_name(types_roots, "Types")
+        if types_root:
+            struct_nodes = findall(
+                types_root,
+                filter_=lambda node: isinstance(node.data, VSSDataStruct),
+            )
+            dynamic_datatypes.extend([f"Types.{node.name}" for node in struct_nodes])
+            if dynamic_datatypes:
+                log.info(f"Dynamic datatypes: {len(dynamic_datatypes)}")
+                log.debug(dynamic_datatypes)
+
+    vspec_data = load_vspec(include_dirs, [vspec] + list(overlays))
     roots, orphans = build_trees(vspec_data.data)
     if orphans:
         log.error(f"Model has orphans\n{orphans}")
@@ -152,16 +162,5 @@ def get_trees(
         check_extra_attribute_violations(root, strict, aborts, extended_attributes)
     except (NameViolationException, ExtraAttributesException):
         exit(1)
-
-    types_root = get_root_with_name(roots, "Types")
-
-    if types_root:
-        struct_nodes = findall(
-            types_root,
-            filter_=lambda node: isinstance(node.data, VSSDataStruct),
-        )
-        dynamic_datatypes.extend([node.name for node in struct_nodes])
-        if dynamic_datatypes:
-            log.info(f"Dynamic datatypes: {len(dynamic_datatypes)}")
 
     return root, types_root
