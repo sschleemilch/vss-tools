@@ -7,7 +7,7 @@
 # SPDX-License-Identifier: MPL-2.0
 
 from vss_tools import log
-from anytree import findall
+from anytree import PreOrderIter, findall
 from pathlib import Path
 from vss_tools.vspec.tree import (
     VSSNode,
@@ -91,6 +91,43 @@ def check_extra_attribute_violations(
             )
 
 
+def get_types_root(
+    types: tuple[Path, ...], include_dirs: tuple[Path, ...]
+) -> VSSNode | None:
+    if not types:
+        log.info("No user 'types' defined")
+        return None
+
+    types_root: VSSNode | None = None
+
+    # We are iterating to be able to reference
+    # types from earlier type files
+    for types_file in list(types):
+        data = load_vspec(include_dirs, [types_file])
+        root, orphans = build_tree(data.data)
+        if orphans:
+            log.error(f"Types model has orphans\n{orphans}")
+            exit(1)
+        if root:
+            struct_nodes = findall(
+                root,
+                filter_=lambda node: isinstance(node.data, VSSDataStruct),
+            )
+            dynamic_datatypes.extend([f"Types.{node.name}" for node in struct_nodes])
+        if types_root:
+            node: VSSNode
+            for node in PreOrderIter(root):
+                types_root.connect(node.get_fqn(), node)
+        else:
+            types_root = root
+
+    if dynamic_datatypes:
+        log.info(f"Dynamic datatypes added={len(dynamic_datatypes)}")
+        log.debug(dynamic_datatypes)
+
+    return types_root
+
+
 def get_trees(
     vspec: Path,
     include_dirs: tuple[Path, ...] = tuple(),
@@ -106,22 +143,7 @@ def get_trees(
 ) -> tuple[VSSNode, VSSNode | None]:
     load_quantities_and_units(quantities, units, vspec.parent)
 
-    types_root = None
-    if types:
-        vspec_types_data = load_vspec(include_dirs, list(types))
-        types_root, types_orphans = build_tree(vspec_types_data.data)
-        if types_orphans:
-            log.error(f"Types model has orphans\n{types_orphans}")
-            exit(1)
-        if types_root:
-            struct_nodes = findall(
-                types_root,
-                filter_=lambda node: isinstance(node.data, VSSDataStruct),
-            )
-            dynamic_datatypes.extend([f"Types.{node.name}" for node in struct_nodes])
-            if dynamic_datatypes:
-                log.info(f"Dynamic datatypes: {len(dynamic_datatypes)}")
-                log.debug(dynamic_datatypes)
+    types_root = get_types_root(types, include_dirs)
 
     vspec_data = load_vspec(include_dirs, [vspec] + list(overlays))
 

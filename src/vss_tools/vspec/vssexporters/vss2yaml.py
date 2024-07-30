@@ -99,7 +99,7 @@ def cli(
         datatype_tree_data = datatype_tree.as_flat_dict(extend_all_attributes)
         if not types_output:
             log.info("Adding custom data types to signal dictionary")
-            tree_data["ComplexDataTypes"] = datatype_tree
+            tree_data["ComplexDataTypes"] = datatype_tree_data
         else:
             export_yaml(types_output, datatype_tree_data)
 
