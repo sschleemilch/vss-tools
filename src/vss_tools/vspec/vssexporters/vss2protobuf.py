@@ -14,10 +14,10 @@ import sys
 import rich_click as click
 import vss_tools.vspec.cli_options as clo
 from vss_tools.vspec.model import (
-    VSSDataBranch,
     VSSDataDatatype,
     VSSDataProperty,
     VSSDataStruct,
+    VSSDataBranch
 )
 from vss_tools.vspec.vssexporters.utils import get_trees
 from vss_tools.vspec.tree import VSSNode
@@ -81,6 +81,8 @@ def traverse_data_type_tree(
             for c_node in findall(
                 node, filter_=lambda n: isinstance(n.data, VSSDataProperty)
             ):
+                if not c_node.data.datatype.startswith("Types."):
+                    continue
                 c_struct_path = Path(c_node.data.datatype.replace(".", "/"))
                 if c_struct_path.parent != struct_path.parent:
                     imports.append(
@@ -101,7 +103,7 @@ def traverse_signal_tree(
     fd.write('syntax = "proto3";\n\n')
 
     imports = []
-    for node in findall(tree, filter_=lambda n: isinstance(n.data, VSSDataProperty)):
+    for node in findall(tree, filter_=lambda n: isinstance(n.data, VSSDataDatatype)):
         if not node.data.datatype.startswith("Types."):  # type: ignore
             # not a complex Datatype
             continue
