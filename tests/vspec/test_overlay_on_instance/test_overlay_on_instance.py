@@ -12,6 +12,7 @@ import filecmp
 
 HERE = Path(__file__).resolve().parent
 TEST_UNITS = HERE / ".." / "test_units.yaml"
+TEST_QUANT = HERE / ".." / "test_quantities.yaml"
 
 
 # Only running json exporter, overlay-functionality should be independent of selected exporter
@@ -20,10 +21,10 @@ def test_expanded_overlay(tmp_path):
     overlay1 = HERE / "overlay_1.vspec"
     overlay2 = HERE / "overlay_2.vspec"
     output = tmp_path / "out.json"
-    cmd = f"vspec export json -e my_id --pretty -u {TEST_UNITS}"
+    cmd = f"vspec export json -e my_id --pretty -u {TEST_UNITS} -q {TEST_QUANT}"
     cmd += f" --vspec {spec} -l {overlay1} -l {overlay2} --output {output}"
+    print(cmd)
     subprocess.run(cmd.split(), check=True)
-
     expected = HERE / "expected.json"
     assert filecmp.cmp(output, expected)
 
@@ -38,7 +39,11 @@ def test_expanded_overlay_no_type_datatype(tmp_path):
     spec = HERE / "test.vspec"
     overlay = HERE / "overlay_no_type_datatype.vspec"
     output = tmp_path / "out.json"
-    cmd = f"vspec export json -e my_id --pretty -u {TEST_UNITS} --vspec {spec} -l {overlay} --output {output}"
+    cmd = f"vspec export json -e my_id --pretty -u {TEST_UNITS} -q {TEST_QUANT}"
+    cmd += f" --vspec {spec} -l {overlay} --output {output}"
     process = subprocess.run(cmd.split(), capture_output=True, text=True)
     assert process.returncode != 0
-    assert "No type specified for A.B.Row1.Left.C" in process.stdout
+    print(process.stdout)
+    assert "'C': 2 validation errors" in process.stdout
+    assert "type" in process.stdout
+    assert "description" in process.stdout

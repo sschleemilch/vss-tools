@@ -6,6 +6,7 @@
 #
 # SPDX-License-Identifier: MPL-2.0
 
+from anytree import RenderTree
 from vss_tools.vspec.tree import VSSNode
 from vss_tools.vspec.vssexporters.utils import get_trees
 from pathlib import Path
@@ -40,6 +41,7 @@ def test_simple_structures(request):
         print(tfs)
         tree, _ = get_trees(vspec=RESOURCES / tfs, include_dirs=(RESOURCES,))
 
+        print(RenderTree(tree).by_attr())
         # check if root node has 3 children
         assert len(tree.children) == 3
 

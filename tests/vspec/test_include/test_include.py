@@ -33,5 +33,4 @@ def test_error(tmp_path):
     process = subprocess.run(cmd.split(), capture_output=True, text=True)
     assert process.returncode != 0
 
-    assert "Orphans: 2" in process.stdout
-    assert "Model has orphans" in process.stdout
+    assert "MultipleRootsException" in process.stderr

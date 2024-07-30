@@ -35,5 +35,5 @@ def test_datatype_branch(tmp_path):
     cmd = f"vspec export json --pretty -u {TEST_UNITS} -q {TEST_QUANT} --vspec {spec} --output {output} --strict"
     process = subprocess.run(cmd.split(), capture_output=True, text=True)
     assert process.returncode != 0
-
-    assert "Forbidden extra attribute: 'A':'datatype'" in process.stdout
+    print(process.stdout)
+    assert "Unknown extra attribute: 'A':'datatype'" in process.stdout

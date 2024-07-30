@@ -27,5 +27,5 @@ def test_error(tmp_path):
         TEST_UNITS} -q {TEST_QUANT} --vspec {spec} --output {output}"
     process = subprocess.run(cmd.split(), capture_output=True, text=True)
     assert process.returncode != 0
-    print(process.stdout)
-    assert "Unexpected amount of type roots: 2" in process.stdout
+    print(process.stderr)
+    assert "MultipleRootsException" in process.stderr
