@@ -15,6 +15,7 @@ import subprocess
 HERE = Path(__file__).resolve().parent
 VSS_TOOLS_ROOT = (HERE / ".." / ".." / "..").absolute()
 TEST_UNITS = HERE / ".." / "test_units.yaml"
+TEST_QUANT = HERE / ".." / "test_quantities.yaml"
 
 
 @pytest.mark.parametrize(
@@ -64,7 +65,7 @@ def test_data_types_export_single_file(
     cmd = f"vspec export {format}"
     if format == "json":
         cmd += " --pretty"
-    cmd += f" --types {type_file} -u {TEST_UNITS} --vspec {vspec} --output {output}"
+    cmd += f" --types {type_file} -u {TEST_UNITS} -q {TEST_QUANT} --vspec {vspec} --output {output}"
     subprocess.run(cmd.split(), check=True)
     expected_output = HERE / expected_signal
     assert filecmp.cmp(output, expected_output)
@@ -173,7 +174,8 @@ def test_data_types_export_to_proto(
     data_types_out = tmp_path
 
     cmd = (
-        f"vspec export protobuf --types {type_vspec_file} -u {TEST_UNITS} --types-out-dir {data_types_out}"
+        f"vspec export protobuf --types {type_vspec_file} -u {TEST_UNITS} -q {TEST_QUANT}"
+        f" --types-out-dir {data_types_out}"
         f" --vspec {signal_vspec_file} --output {actual_signal_file}"
     )
 
@@ -218,7 +220,7 @@ def test_data_types_invalid_reference_in_data_type_tree(
     output_types = tmp_path / "VehicleDataTypes.vspec"
     vspec = HERE / "test.vspec"
     output = tmp_path / "out.json"
-    cmd = f"vspec export json -u {TEST_UNITS} --pretty --types {types_file}"
+    cmd = f"vspec export json -u {TEST_UNITS} -q {TEST_QUANT} --pretty --types {types_file}"
     cmd += f" --types-output {output_types} --vspec {vspec} --output {output}"
     process = subprocess.run(cmd.split(), capture_output=True, text=True)
     assert process.returncode != 0
@@ -243,12 +245,11 @@ def test_data_types_orphan_properties(types_file, error_msg, tmp_path):
     vspec = HERE / "test.vspec"
     out = tmp_path / "out.json"
 
-    cmd = f"vspec export json -u {TEST_UNITS} --pretty --types {types_file}"
+    cmd = f"vspec export json -u {TEST_UNITS} -q {TEST_QUANT} --pretty --types {types_file}"
     cmd += f" --types-output {types_out} --vspec {vspec} --output {out}"
     env = os.environ.copy()
     env["COLUMNS"] = "200"
-    process = subprocess.run(
-        cmd.split(), capture_output=True, text=True, env=env)
+    process = subprocess.run(cmd.split(), capture_output=True, text=True, env=env)
     assert process.returncode != 0
     assert error_msg in process.stdout
 
@@ -262,12 +263,11 @@ def test_data_types_invalid_reference_in_signal_tree(tmp_path):
     vspec = HERE / "test-invalid-datatypes.vspec"
     out = tmp_path / "out.json"
 
-    cmd = f"vspec export json -u {TEST_UNITS} --pretty --types {types_file}"
+    cmd = f"vspec export json -u {TEST_UNITS} -q {TEST_QUANT} --pretty --types {types_file}"
     cmd += f" --types-output {types_out} --vspec {vspec} --output {out}"
     env = os.environ.copy()
     env["COLUMNS"] = "200"
-    process = subprocess.run(
-        cmd.split(), capture_output=True, text=True, env=env)
+    process = subprocess.run(cmd.split(), capture_output=True, text=True, env=env)
     assert process.returncode != 0
 
     error_msg = (
@@ -284,11 +284,10 @@ def test_error_when_no_user_defined_data_types_are_provided(tmp_path):
     """
     vspec = HERE / "test.vspec"
     out = tmp_path / "out.json"
-    cmd = f"vspec export json -u {TEST_UNITS} --pretty --vspec {vspec} --output {out}"
+    cmd = f"vspec export json -u {TEST_UNITS} -q {TEST_QUANT} --pretty --vspec {vspec} --output {out}"
     env = os.environ.copy()
     env["COLUMNS"] = "200"
-    process = subprocess.run(
-        cmd.split(), capture_output=True, text=True, env=env)
+    process = subprocess.run(cmd.split(), capture_output=True, text=True, env=env)
     assert process.returncode != 0
 
     error_msg = (
@@ -323,11 +322,10 @@ def test_faulty_use_of_standard_attributes(vspec_file, types_file, error_msg, tm
     vspec_file = HERE / vspec_file
     out = tmp_path / "out.json"
 
-    cmd = f"vspec export json -u {TEST_UNITS} --pretty --types {types_file}"
+    cmd = f"vspec export json -u {TEST_UNITS} -q {TEST_QUANT} --pretty --types {types_file}"
     cmd += f" --types-output {types_out} --vspec {vspec_file} --output {out}"
     env = os.environ.copy()
     env["COLUMNS"] = "200"
-    process = subprocess.run(
-        cmd.split(), capture_output=True, text=True, env=env)
+    process = subprocess.run(cmd.split(), capture_output=True, text=True, env=env)
     assert process.returncode != 0
     assert error_msg in process.stdout
