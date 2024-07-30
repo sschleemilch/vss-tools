@@ -17,6 +17,10 @@ class NoRootsException(Exception):
     pass
 
 
+class MultipleRootsException(Exception):
+    pass
+
+
 class InvalidExpansionEntryException(Exception):
     pass
 
@@ -26,7 +30,6 @@ class VSSNode(Node):  # type: ignore[misc]
 
     def __init__(self, name: str, data: dict[str, Any], **kwargs: Any) -> None:
         super().__init__(name, **kwargs)
-        log.debug(f"{self.__class__.__name__}, name={name}")
         self.data = get_vss_data(data, name)
         self.uuid: str | None = None
 
@@ -47,12 +50,37 @@ class VSSNode(Node):  # type: ignore[misc]
             and node.data.instances,
         )
 
+    def get_node_with_fqn(self, fqn: str, sep: str = SEPARATOR) -> VSSNode | None:
+        results = findall(self, filter_=lambda n: n.get_fqn(sep) == fqn)
+        if results:
+            return results[0]
+        return None
+
+    def connect(self, fqn: str, node: VSSNode) -> VSSNode | None:
+        if self.get_node_with_fqn(fqn):
+            log.info(f"Already connected: {fqn}")
+            return None
+        target_fqn = get_expected_parent(fqn)
+        if not target_fqn:
+            return None
+        target = self.get_node_with_fqn(target_fqn)
+        if target:
+            node.parent = target
+            return target
+        else:
+            auto_node = VSSNode(
+                get_name(target_fqn),
+                {"type": "branch", "description": "Auto generated"},
+            )
+            node.parent = auto_node
+            return self.connect(target_fqn, auto_node)
+
     def expand_instances(self) -> None:
         instance_nodes = self.get_instance_nodes()
         iterations = 0
         while instance_nodes:
             iterations += 1
-            for node in instance_nodes:
+            for i, node in enumerate(instance_nodes):
                 # We make a copy of the current node
                 # since we need it as a template for instances
                 ref_node = deepcopy(node)
@@ -101,7 +129,14 @@ class VSSNode(Node):  # type: ignore[misc]
                 )
                 log.debug(f"Adding to leafs: {add}")
 
+                # If we are at the last iteration we need to set the root
+                # points to the leafs of our tree in order to attach
+                # initially copied node childen correctly
+                if i == len(instance_nodes) - 1:
+                    roots = findall(node, filter_=lambda n: n.is_leaf)
+
                 for root in roots:
+                    # for root in findall(node, filter_=lambda n: n.is_leaf):
                     for a in deepcopy(add):
                         # We can attach the node to the root point
                         # unless it is already there (explicitly) set
@@ -110,7 +145,8 @@ class VSSNode(Node):  # type: ignore[misc]
                             a.parent = root
 
             instance_nodes = self.get_instance_nodes()
-        log.info(f"Instance expand iterations: {iterations}")
+        if iterations > 0:
+            log.info(f"Instance expansion, iterations={iterations}")
 
     def remove_delete_nodes(self) -> None:
         size_before = self.size
@@ -217,7 +253,9 @@ def expand_instance(
         return roots
 
 
-def build_trees(data: dict[str, Any]) -> tuple[list[VSSNode], list[VSSNode]]:
+def build_tree(
+    data: dict[str, Any], connect_orphans: bool = False
+) -> tuple[VSSNode, dict[str, VSSNode]]:
     nodes: dict[str, VSSNode] = {}
 
     for k, v in data.items():
@@ -232,24 +270,36 @@ def build_trees(data: dict[str, Any]) -> tuple[list[VSSNode], list[VSSNode]]:
         nodes[k] = node
 
     roots = []
-    orphans = []
+    orphans = {}
     for fqn, node in nodes.items():
         if not node.parent:
             if SEPARATOR not in fqn:
                 roots.append(node)
             else:
-                orphans.append(node)
+                orphans[fqn] = node
 
     if not roots:
         raise NoRootsException()
 
+    if len(roots) > 1:
+        raise MultipleRootsException(f"{[r.name for r in roots]}")
+
+    root: VSSNode = roots[0]
+    if connect_orphans:
+        connected_fqns = []
+        for fqn, orphan in orphans.items():
+            connected = root.connect(fqn, orphan)
+            if connected:
+                connected_fqns.append(fqn)
+        for fqn in connected_fqns:
+            del orphans[fqn]
+
     if orphans:
         log.warning(f"Orphans: {len(orphans)}")
-    for root in roots:
-        root.remove_delete_nodes()
-        log.info(f"Tree, root='{root.name}', size={
-                 root.size}, height={root.height}")
-    return roots, orphans
+
+    log.info(f"Tree, root='{root.name}', size={
+            root.size}, height={root.height}")
+    return root, orphans
 
 
 def expand_string(s: str) -> list[str]:

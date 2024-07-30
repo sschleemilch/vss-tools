@@ -11,8 +11,7 @@ from anytree import findall
 from pathlib import Path
 from vss_tools.vspec.tree import (
     VSSNode,
-    build_trees,
-    get_root_with_name,
+    build_tree,
 )
 from vss_tools.vspec.vspec import load_vspec
 from vss_tools.vspec.units_quantities import load_quantities, load_units
@@ -110,16 +109,10 @@ def get_trees(
     types_root = None
     if types:
         vspec_types_data = load_vspec(include_dirs, list(types))
-        types_roots, types_orphans = build_trees(vspec_types_data.data)
+        types_root, types_orphans = build_tree(vspec_types_data.data)
         if types_orphans:
             log.error(f"Types model has orphans\n{types_orphans}")
             exit(1)
-        if len(types_roots) > 1:
-            log.critical(f"Unexpected amount of type roots: {
-                         len(types_roots)}")
-            log.critical(f"Types roots: {types_roots}")
-            exit(1)
-        types_root = get_root_with_name(types_roots, "Types")
         if types_root:
             struct_nodes = findall(
                 types_root,
@@ -131,30 +124,18 @@ def get_trees(
                 log.debug(dynamic_datatypes)
 
     vspec_data = load_vspec(include_dirs, [vspec] + list(overlays))
-    roots, orphans = build_trees(vspec_data.data)
+
+    root, orphans = build_tree(vspec_data.data, connect_orphans=True)
+
     if orphans:
-        log.error(f"Model has orphans\n{orphans}")
+        log.error(f"Model has orphans\n{list(orphans.keys())}")
         exit(1)
 
-    for r in roots:
-        if expand:
-            r.expand_instances()
-        if uuid:
-            r.add_uuids()
-
-    if len(roots) > 2:
-        log.critical(f"Unexpected amount of roots: {len(roots)}")
-        log.critical(f"Roots: {roots}")
-        exit(1)
-
-    root = get_root_with_name(roots, "Vehicle")
-
-    if not root and len(roots) == 1:
-        root = roots[0]
-
-    if not root:
-        log.critical("Did not find 'Vehicle' root.")
-        exit(1)
+    if expand:
+        root.expand_instances()
+    if uuid:
+        root.add_uuids()
+    root.remove_delete_nodes()
 
     try:
         check_name_violations(root, strict, aborts)

@@ -10,12 +10,13 @@ def load_units_or_quantities(
 ) -> dict[str, VSSUnit | VSSQuantity]:
     data = {}
     for file in files:
-        log.info(f"Loading '{class_type.__name__}' file: {file.absolute()}")
         content = yaml.safe_load(file.read_text())
         if not content:
             log.warning(f"{file}, empty")
             continue
-        log.info(f"Elements loaded: {len(content)}")
+        log.info(
+            f"Loaded '{class_type.__name__}', file={file.absolute()}, elements={len(content)}"
+        )
         for k, v in content.items():
             try:
                 data[k] = class_type(**v)

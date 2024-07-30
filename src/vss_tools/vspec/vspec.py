@@ -113,7 +113,7 @@ def load_vspec(include_dirs: tuple[Path, ...], specs: list[Path]) -> VSpec:
     spec = None
     for s in specs:
         includes = list(include_dirs) + [s.parent]
-        log.info(f"Loading vspec: {s}")
+        log.info(f"Loading 'VSpec', file={s.absolute()}")
         vs = VSpec(s, list(includes))
         if spec:
             spec.update(vs)
