@@ -53,21 +53,22 @@ class VSSNode(Node):  # type: ignore[misc]
         while instance_nodes:
             iterations += 1
             for node in instance_nodes:
+                # We make a copy of the current node
+                # since we need it as a template for instances
                 ref_node = deepcopy(node)
+                ref_node.children = []
 
-                exclude_children = []
-                include_children = []
+                # We only want to add children to the template
+                # that are marked as instantiate=True
                 for c in node.children:
                     if c.data.instantiate:
-                        include_children.append(c)
-                    else:
-                        exclude_children.append(c)
+                        c.parent = ref_node
 
-                node.children = exclude_children
-                ref_node.children = deepcopy(include_children)
-
+                # A dynamic list with points where new instances
+                # should be attached to
                 roots = [node]
 
+                # Harmonizing instances attribute to be a list
                 instances = getattr(node.data, "instances", [])
                 if isinstance(instances, str):
                     instances = [instances]
@@ -75,9 +76,38 @@ class VSSNode(Node):  # type: ignore[misc]
                 for instance in instances:
                     roots = expand_instance(roots, ref_node, instance)
 
+                # Instances have been expanded, therefore remove them
+                # to not cause a recursion
                 node.data.instances = []  # type: ignore
-                for leaf in findall(node, filter_=lambda n: n.is_leaf):
-                    leaf.children = deepcopy(ref_node.children)
+
+                # We replace nodes in the expanded instance tree
+                # that have been defined to be overwritten in the vspec
+                # or an overlay
+                replaced = []
+                for c in ref_node.children:
+                    match = findall(node, filter_=lambda n: n.get_fqn() == c.get_fqn())
+                    if match:
+                        replaced.append(c)
+                        match[0].data = c.data
+                        match[0].children += c.children
+
+                # The rest of the initial node children can be added
+                # to the current roots
+                add = tuple(
+                    filter(
+                        lambda x: x.get_fqn() not in [r.get_fqn() for r in replaced],
+                        ref_node.children,
+                    )
+                )
+                log.debug(f"Adding to leafs: {add}")
+
+                for root in roots:
+                    for a in deepcopy(add):
+                        # We can attach the node to the root point
+                        # unless it is already there (explicitly) set
+                        # in a vspec
+                        if not findall(root, filter_=lambda n: n.name == a.name):
+                            a.parent = root
 
             instance_nodes = self.get_instance_nodes()
         log.info(f"Instance expand iterations: {iterations}")

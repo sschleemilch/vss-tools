@@ -41,7 +41,7 @@ def load_quantities_and_units(
             quantities = (default_quantity,)
         else:
             log.warning(
-                "No quantity files defined and default one does not exist. Quantities will be empty!"
+                f"No 'quantity' files defined. Default not existing: {default_quantity}"
             )
     if not units:
         default_unit = vspec_root / "units.yaml"
@@ -49,7 +49,7 @@ def load_quantities_and_units(
             units = (default_unit,)
         else:
             log.warning(
-                "No unit files defined and default one does not exist. Units will be empty!"
+                f"No 'unit' files defined. Default not existing: {default_unit}"
             )
 
     quantity_data = load_quantities(list(quantities))
@@ -106,7 +106,6 @@ def get_trees(
     expand: bool = True,
 ) -> tuple[VSSNode, VSSNode | None]:
     load_quantities_and_units(quantities, units, vspec.parent)
-    log.info(dynamic_units)
 
     types_root = None
     if types:
