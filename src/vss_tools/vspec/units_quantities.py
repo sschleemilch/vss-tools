@@ -12,6 +12,14 @@ import yaml
 from vss_tools import log
 
 
+class UnitQuantityRedefinitionException(Exception):
+    pass
+
+
+class MalformedDictException(Exception):
+    pass
+
+
 def load_units_or_quantities(
     files: list[Path], class_type: type[VSSUnit | VSSQuantity]
 ) -> dict[str, VSSUnit | VSSQuantity]:
@@ -25,6 +33,12 @@ def load_units_or_quantities(
             f"Loaded '{class_type.__name__}', file={file.absolute()}, elements={len(content)}"
         )
         for k, v in content.items():
+            if v is None:
+                log.error(f"'{class_type.__name__}', '{k}' is 'None'")
+                raise MalformedDictException()
+            if k in data:
+                log.error(f"'{class_type.__name__}', redefinition of '{k}'")
+                raise UnitQuantityRedefinitionException()
             try:
                 data[k] = class_type(**v)
             except ValidationError as e:

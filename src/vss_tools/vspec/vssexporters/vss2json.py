@@ -20,6 +20,8 @@ from vss_tools import log
 
 def get_data(node: VSSNode, with_extra_attributes: bool = True):
     data = node.data.as_dict(with_extra_attributes)
+    if node.uuid:
+        data["uuid"] = node.uuid
     if len(node.children) > 0:
         data["children"] = {}
     for child in node.children:
