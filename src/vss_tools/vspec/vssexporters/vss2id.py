@@ -15,13 +15,13 @@ from typing import Dict, Tuple, Any
 import yaml
 
 from vss_tools.vspec.utils.misc import getattr_nn
-from vss_tools.vspec.vssexporters.utils import get_trees
+from vss_tools.vspec.tree_utils import get_trees
 import rich_click as click
 import vss_tools.vspec.cli_options as clo
 from pathlib import Path
 from vss_tools import log
 from vss_tools.vspec.tree import VSSNode
-from vss_tools.vspec.utils import vss2id_val
+from vss_tools.vspec.tree_utils import vss2id_val
 from vss_tools.vspec.utils.idgen_utils import (
     fnv1_32_hash,
     get_all_keys_values,

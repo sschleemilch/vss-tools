@@ -224,6 +224,10 @@ def get_fqn_namespaced_datatypes(fqn: str | None = None) -> dict[str, str]:
         return {}
     fqn_namespaced_datatypes = {}
     for t in dynamic_datatypes:
+        # This excludes referencing the own struct as a datatype
+        if fqn.startswith(t):
+            continue
+
         if fqn.startswith(".".join(t.split(".")[:-1])):
             fqn_namespaced_datatypes[(t.split(".")[-1])] = t
 
@@ -231,21 +235,22 @@ def get_fqn_namespaced_datatypes(fqn: str | None = None) -> dict[str, str]:
     return fqn_namespaced_datatypes
 
 
-def get_all_datatypes(fqn: str | None = None) -> list[str]:
-    static_datatypes = [t[0] for t in Datatypes.types]
-
+def get_dynamic_datatypes(fqn: str | None = None) -> list[str]:
     fqn_namespaced_datatypes = set(get_fqn_namespaced_datatypes(fqn).keys())
-
     dynamic_array_datatypes = [
         f"{t}[]" for t in dynamic_datatypes | fqn_namespaced_datatypes
     ]
-
     return (
-        static_datatypes
-        + list(dynamic_datatypes)
+        list(dynamic_datatypes)
         + dynamic_array_datatypes
         + list(fqn_namespaced_datatypes)
     )
+
+
+def get_all_datatypes(fqn: str | None = None) -> list[str]:
+    static_datatypes = [t[0] for t in Datatypes.types]
+    dynamic_datatypes = get_dynamic_datatypes(fqn)
+    return static_datatypes + dynamic_datatypes
 
 
 def resolve_datatype(datatype: str, fqn: str | None) -> str:

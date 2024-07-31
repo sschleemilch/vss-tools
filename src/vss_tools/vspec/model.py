@@ -209,6 +209,9 @@ class VSSDataDatatype(VSSData):
     @model_validator(mode="after")
     def check_datatype_matching_allowed_unit_datatypes(self) -> Self:
         if self.unit:
+            assert Datatypes.get_type(
+                self.datatype
+            ), f"Cannot use 'unit' with complex datatype: '{self.datatype}'"
             assert any(
                 Datatypes.is_subtype_of(self.datatype.rstrip("[]"), a)
                 for a in dynamic_units[self.unit]

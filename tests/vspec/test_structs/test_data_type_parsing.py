@@ -199,15 +199,15 @@ def test_data_types_export_to_proto(
     [
         (
             "VehicleDataTypesInvalidStructWithQualifiedName.vspec",
-            "2 data type reference errors detected",
+            "'VehicleDataTypes.NestedStruct1' is not a valid datatype",
         ),
         (
             "VehicleDataTypesWithCircularRefs.vspec",
-            "4 data type reference errors detected",
+            "'ParentStruct' is not a valid datatype",
         ),
         (
             "VehicleDataTypesInvalidStruct.vspec",
-            "Data type not found. Data Type: NestedStruct1",
+            "'NestedStruct1' is not a valid datatype",
         ),
     ],
 )
@@ -223,7 +223,9 @@ def test_data_types_invalid_reference_in_data_type_tree(
     output = tmp_path / "out.json"
     cmd = f"vspec export json -u {TEST_UNITS} -q {TEST_QUANT} --pretty --types {types_file}"
     cmd += f" --types-output {output_types} --vspec {vspec} --output {output}"
-    process = subprocess.run(cmd.split(), capture_output=True, text=True)
+    env = os.environ.copy()
+    env["COLUMNS"] = "200"
+    process = subprocess.run(cmd.split(), capture_output=True, text=True, env=env)
     assert process.returncode != 0
     assert error_msg in process.stdout
 
@@ -233,7 +235,7 @@ def test_data_types_invalid_reference_in_data_type_tree(
     [
         (
             "VehicleDataTypesInvalidStructWithOrphanProperties.vspec",
-            "Orphan property detected. y_property is not defined under a struct",
+            "Property orphans=1",
         )
     ],
 )
@@ -271,10 +273,7 @@ def test_data_types_invalid_reference_in_signal_tree(tmp_path):
     process = subprocess.run(cmd.split(), capture_output=True, text=True, env=env)
     assert process.returncode != 0
 
-    error_msg = (
-        "Following types were referenced in signals but have not been defined: "
-        "VehicleDataTypes.TestBranch1.ParentStruct1, VehicleDataTypes.TestBranch1.NestedStruct1"
-    )
+    error_msg = "'VehicleDataTypes.TestBranch1.ParentStruct1' is not a valid datatype"
     assert error_msg in process.stdout
 
 
@@ -291,10 +290,7 @@ def test_error_when_no_user_defined_data_types_are_provided(tmp_path):
     process = subprocess.run(cmd.split(), capture_output=True, text=True, env=env)
     assert process.returncode != 0
 
-    error_msg = (
-        "Following types were referenced in signals but have not been defined: "
-        "VehicleDataTypes.TestBranch1.ParentStruct, VehicleDataTypes.TestBranch1.NestedStruct"
-    )
+    error_msg = "'VehicleDataTypes.TestBranch1.ParentStruct' is not a valid datatype"
     assert error_msg in process.stdout
 
 
@@ -304,13 +300,17 @@ def test_error_when_no_user_defined_data_types_are_provided(tmp_path):
         (
             "test.vspec",
             "VehicleDataTypesStructWithDataType.vspec",
-            "cannot have datatype, only allowed for signal and property",
+            "Unknown extra attribute: 'VehicleDataTypes.TestBranch1.NestedStruct':'datatype'",
         ),
-        ("test.vspec", "VehicleDataTypesStructWithUnit.vspec", "cannot have unit"),
+        (
+            "test.vspec",
+            "VehicleDataTypesStructWithUnit.vspec",
+            "Unknown extra attribute: 'VehicleDataTypes.TestBranch1.NestedStruct':'unit'",
+        ),
         (
             "test_with_unit_on_struct_signal.vspec",
             "VehicleDataTypes.vspec",
-            "Unit specified for item not using standard datatype",
+            "Cannot use 'unit' with complex datatype: 'VehicleDataTypes.TestBranch1.ParentStruct'",
         ),
     ],
 )
@@ -329,4 +329,6 @@ def test_faulty_use_of_standard_attributes(vspec_file, types_file, error_msg, tm
     env["COLUMNS"] = "200"
     process = subprocess.run(cmd.split(), capture_output=True, text=True, env=env)
     assert process.returncode != 0
-    assert error_msg in process.stdout
+    print(process.stderr)
+    print(process.stdout)
+    assert error_msg in process.stdout or error_msg in process.stderr

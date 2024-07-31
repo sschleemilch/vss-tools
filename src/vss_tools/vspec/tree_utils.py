@@ -7,8 +7,9 @@
 # SPDX-License-Identifier: MPL-2.0
 
 from vss_tools import log
-from anytree import PreOrderIter
+from anytree import PreOrderIter, findall
 from pathlib import Path
+from vss_tools.vspec.model import VSSDataProperty, VSSDataStruct
 from vss_tools.vspec.tree import (
     VSSNode,
     build_tree,
@@ -35,6 +36,10 @@ class MultipleTypeTreesException(Exception):
 
 
 class RootTypesException(Exception):
+    pass
+
+
+class PropertyOrphansException(Exception):
     pass
 
 
@@ -100,6 +105,19 @@ def check_extra_attribute_violations(
             )
 
 
+def get_property_orphans(root: VSSNode | None) -> list[VSSNode]:
+    orphans = []
+    if root is None:
+        return orphans
+    pnode: VSSNode
+    for pnode in findall(root, filter_=lambda n: isinstance(n.data, VSSDataProperty)):
+        if pnode.parent is None:
+            orphans.append(pnode)
+        elif not isinstance(pnode.parent.data, VSSDataStruct):
+            orphans.append(pnode)
+    return orphans
+
+
 def get_types_root(
     types: tuple[Path, ...], include_dirs: tuple[Path, ...]
 ) -> VSSNode | None:
@@ -130,6 +148,12 @@ def get_types_root(
 
     if not all(["." in t for t in dynamic_datatypes]):
         raise RootTypesException()
+
+    property_orphans = get_property_orphans(types_root)
+    if property_orphans:
+        log.error(f"Property orphans={len(property_orphans)}")
+        log.debug(property_orphans)
+        raise PropertyOrphansException()
 
     return types_root
 
@@ -164,6 +188,16 @@ def get_trees(
     if uuid:
         root.add_uuids()
     root.remove_delete_nodes()
+
+    if types_root:
+        try:
+            # TODO: Should type tree properties be compliant to name-style?
+            # check_name_violations(types_root, strict, aborts)
+            check_extra_attribute_violations(
+                types_root, True, aborts, extended_attributes
+            )
+        except (NameViolationException, ExtraAttributesException):
+            exit(1)
 
     try:
         check_name_violations(root, strict, aborts)
