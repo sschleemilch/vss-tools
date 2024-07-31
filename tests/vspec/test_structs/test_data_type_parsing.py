@@ -117,7 +117,8 @@ def test_data_types_export_multi_file(
     cmd = f"vspec export {format}"
     if format == "json":
         cmd += " --pretty"
-    cmd += f" --types {type_file} -u {TEST_UNITS} --types-output {types_output} --vspec {vspec} --output {output}"
+    cmd += f" --types {type_file} -u {TEST_UNITS} -q {TEST_QUANT} --types-output {types_output}"
+    cmd += f" --vspec {vspec} --output {output}"
     subprocess.run(cmd.split(), check=True)
     expected_signal = HERE / expected_signal
     expected_data_types = HERE / expected_data_types

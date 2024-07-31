@@ -25,9 +25,12 @@ from vss_tools.vspec.datatypes import (
     dynamic_units,
     get_all_datatypes,
     is_array,
+    resolve_datatype,
 )
 
-EXPORT_EXCLUDE_ATTRIBUTES = ["delete", "instantiate", "fqn"]
+# TODO: Why do we exclude "arraysize"?
+# Added it because of "test_data_type_parsing.py"
+EXPORT_EXCLUDE_ATTRIBUTES = ["delete", "instantiate", "fqn", "arraysize"]
 
 
 class ModelException(Exception):
@@ -194,6 +197,7 @@ class VSSDataDatatype(VSSData):
         assert self.datatype in get_all_datatypes(
             self.fqn
         ), f"'{self.datatype}' is not a valid datatype"
+        self.datatype = resolve_datatype(self.datatype, self.fqn)
         return self
 
     @field_validator("unit")

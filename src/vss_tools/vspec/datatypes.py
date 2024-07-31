@@ -219,15 +219,22 @@ class Datatypes:
         return check in base_type[2] or check == base
 
 
-def get_all_datatypes(fqn: str | None = None) -> list[str]:
-    static_datatypes = [t[0] for t in Datatypes.types]
-    fqn_namespaced_datatypes = set()
-    if fqn:
-        for t in dynamic_datatypes:
-            if fqn.startswith(".".join(t.split(".")[:-1])):
-                fqn_namespaced_datatypes.add(t.split(".")[-1])
+def get_fqn_namespaced_datatypes(fqn: str | None = None) -> dict[str, str]:
+    if not fqn:
+        return {}
+    fqn_namespaced_datatypes = {}
+    for t in dynamic_datatypes:
+        if fqn.startswith(".".join(t.split(".")[:-1])):
+            fqn_namespaced_datatypes[(t.split(".")[-1])] = t
 
     log.debug(f"{fqn=}, {fqn_namespaced_datatypes=}")
+    return fqn_namespaced_datatypes
+
+
+def get_all_datatypes(fqn: str | None = None) -> list[str]:
+    static_datatypes = [t[0] for t in Datatypes.types]
+
+    fqn_namespaced_datatypes = set(get_fqn_namespaced_datatypes(fqn).keys())
 
     dynamic_array_datatypes = [
         f"{t}[]" for t in dynamic_datatypes | fqn_namespaced_datatypes
@@ -239,6 +246,19 @@ def get_all_datatypes(fqn: str | None = None) -> list[str]:
         + dynamic_array_datatypes
         + list(fqn_namespaced_datatypes)
     )
+
+
+def resolve_datatype(datatype: str, fqn: str | None) -> str:
+    if not fqn:
+        return datatype
+
+    array = is_array(datatype)
+    datatype = datatype.rstrip("[]")
+
+    resvoled = get_fqn_namespaced_datatypes(fqn).get(datatype, datatype)
+    if array:
+        resvoled += "[]"
+    return resvoled
 
 
 def is_array(datatype: str) -> bool:

@@ -78,9 +78,12 @@ def traverse_data_type_tree(
         with open(out_file, "a") as fd:
             imports = []
             for c_node in findall(
-                node, filter_=lambda n: isinstance(n.data, VSSDataStruct)
+                node, filter_=lambda n: isinstance(n.data, VSSDataDatatype)
             ):
-                c_struct_path = Path(c_node.get_fqn().replace(".", "/"))
+                datatype = c_node.data.datatype
+                if "." not in datatype:
+                    continue
+                c_struct_path = Path(datatype.replace(".", "/"))
                 if c_struct_path.parent != struct_path.parent:
                     imports.append(
                         f"{c_struct_path.parent}/{c_struct_path.parent.name}.proto"
@@ -101,6 +104,9 @@ def traverse_signal_tree(
 
     imports = []
     for node in findall(tree, filter_=lambda n: isinstance(n.data, VSSDataDatatype)):
+        datatype = node.data.datatype
+        if "." not in datatype:
+            continue
         struct_path = Path(node.data.datatype.replace(".", "/"))  # type: ignore
         imports.append(f"{struct_path.parent}/{struct_path.parent.name}.proto")
     write_imports(fd, imports)
