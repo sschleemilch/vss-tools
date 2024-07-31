@@ -7,7 +7,7 @@
 # SPDX-License-Identifier: MPL-2.0
 
 from vss_tools import log
-from anytree import PreOrderIter, findall
+from anytree import PreOrderIter
 from pathlib import Path
 from vss_tools.vspec.tree import (
     VSSNode,
@@ -20,7 +20,6 @@ from vss_tools.vspec.datatypes import (
     dynamic_datatypes,
     dynamic_quantities,
 )
-from vss_tools.vspec.model import VSSDataStruct
 
 
 class NameViolationException(Exception):
@@ -28,6 +27,14 @@ class NameViolationException(Exception):
 
 
 class ExtraAttributesException(Exception):
+    pass
+
+
+class MultipleTypeTreesException(Exception):
+    pass
+
+
+class RootTypesException(Exception):
     pass
 
 
@@ -40,7 +47,8 @@ def load_quantities_and_units(
             quantities = (default_quantity,)
         else:
             log.warning(
-                f"No 'quantity' files defined. Default not existing: {default_quantity}"
+                f"No 'quantity' files defined. Default not existing: {
+                    default_quantity}"
             )
     if not units:
         default_unit = vspec_root / "units.yaml"
@@ -48,7 +56,8 @@ def load_quantities_and_units(
             units = (default_unit,)
         else:
             log.warning(
-                f"No 'unit' files defined. Default not existing: {default_unit}"
+                f"No 'unit' files defined. Default not existing: {
+                    default_unit}"
             )
 
     quantity_data = load_quantities(list(quantities))
@@ -99,7 +108,6 @@ def get_types_root(
         return None
 
     types_root: VSSNode | None = None
-
     # We are iterating to be able to reference
     # types from earlier type files
     for types_file in list(types):
@@ -108,22 +116,20 @@ def get_types_root(
         if orphans:
             log.error(f"Types model has orphans\n{orphans}")
             exit(1)
-        if root:
-            struct_nodes = findall(
-                root,
-                filter_=lambda node: isinstance(node.data, VSSDataStruct),
-            )
-            dynamic_datatypes.extend([f"Types.{node.name}" for node in struct_nodes])
         if types_root:
             node: VSSNode
             for node in PreOrderIter(root):
-                types_root.connect(node.get_fqn(), node)
+                if not types_root.connect(node.get_fqn(), node):
+                    raise MultipleTypeTreesException()
         else:
             types_root = root
 
     if dynamic_datatypes:
         log.info(f"Dynamic datatypes added={len(dynamic_datatypes)}")
         log.debug(dynamic_datatypes)
+
+    if not all(["." in t for t in dynamic_datatypes]):
+        raise RootTypesException()
 
     return types_root
 

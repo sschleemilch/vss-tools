@@ -1,3 +1,10 @@
+# Copyright (c) 2023 Contributors to COVESA
+#
+# This program and the accompanying materials are made available under the
+# terms of the Mozilla Public License 2.0 which is available at
+# https://www.mozilla.org/en-US/MPL/2.0/
+#
+# SPDX-License-Identifier: MPL-2.0
 from enum import Enum
 from typing import Any, Self
 import re
@@ -20,7 +27,7 @@ from vss_tools.vspec.datatypes import (
     is_array,
 )
 
-EXPORT_EXCLUDE_ATTRIBUTES = ["delete", "instantiate"]
+EXPORT_EXCLUDE_ATTRIBUTES = ["delete", "instantiate", "fqn"]
 
 
 class ModelException(Exception):
@@ -38,6 +45,7 @@ class NodeType(str, Enum):
 
 class VSSData(BaseModel):
     model_config = ConfigDict(extra="allow")
+    fqn: str | None = None
     type: NodeType
     description: str
     comment: str | None = None
@@ -181,11 +189,12 @@ class VSSDataDatatype(VSSData):
             assert self.allowed is None, err
         return self
 
-    @field_validator("datatype")
-    @classmethod
-    def check_datatype(cls, v: str) -> str:
-        assert v in get_all_datatypes(), f"'{v}' is not a valid datatype"
-        return v
+    @model_validator(mode="after")
+    def check_datatype(self) -> Self:
+        assert self.datatype in get_all_datatypes(
+            self.fqn
+        ), f"'{self.datatype}' is not a valid datatype"
+        return self
 
     @field_validator("unit")
     @classmethod
@@ -233,7 +242,7 @@ TYPE_CLASS_MAP = {
 }
 
 
-def get_vss_data(data: dict[str, Any], name: str) -> VSSData:
+def get_vss_data(data: dict[str, Any], fqn: str | None) -> VSSData:
     try:
         model = VSSData(**data)
         cls = TYPE_CLASS_MAP.get(model.type)
@@ -241,9 +250,9 @@ def get_vss_data(data: dict[str, Any], name: str) -> VSSData:
             msg = f"No class type mapping for '{model.type}'"
             log.critical(msg)
             raise ModelException(msg)
-        model = cls(**data)
+        model = cls(fqn=fqn, **data)
     except ValidationError as e:
-        log.error(f"'{name}': {e}")
+        log.error(f"'{fqn}': {e}")
         raise e
 
     return model

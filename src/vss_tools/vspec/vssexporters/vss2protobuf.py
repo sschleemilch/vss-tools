@@ -15,9 +15,8 @@ import rich_click as click
 import vss_tools.vspec.cli_options as clo
 from vss_tools.vspec.model import (
     VSSDataDatatype,
-    VSSDataProperty,
     VSSDataStruct,
-    VSSDataBranch
+    VSSDataBranch,
 )
 from vss_tools.vspec.vssexporters.utils import get_trees
 from vss_tools.vspec.tree import VSSNode
@@ -79,11 +78,9 @@ def traverse_data_type_tree(
         with open(out_file, "a") as fd:
             imports = []
             for c_node in findall(
-                node, filter_=lambda n: isinstance(n.data, VSSDataProperty)
+                node, filter_=lambda n: isinstance(n.data, VSSDataStruct)
             ):
-                if not c_node.data.datatype.startswith("Types."):
-                    continue
-                c_struct_path = Path(c_node.data.datatype.replace(".", "/"))
+                c_struct_path = Path(c_node.get_fqn().replace(".", "/"))
                 if c_struct_path.parent != struct_path.parent:
                     imports.append(
                         f"{c_struct_path.parent}/{c_struct_path.parent.name}.proto"
@@ -104,9 +101,6 @@ def traverse_signal_tree(
 
     imports = []
     for node in findall(tree, filter_=lambda n: isinstance(n.data, VSSDataDatatype)):
-        if not node.data.datatype.startswith("Types."):  # type: ignore
-            # not a complex Datatype
-            continue
         struct_path = Path(node.data.datatype.replace(".", "/"))  # type: ignore
         imports.append(f"{struct_path.parent}/{struct_path.parent.name}.proto")
     write_imports(fd, imports)
@@ -148,7 +142,8 @@ def print_messages(
             if "staticUID" not in node.data.get_extra_attributes():
                 log.fatal(
                     (
-                        f"Aborting because {node.get_fqn()} does not have the staticUID attribute. "
+                        f"Aborting because {
+                            node.get_fqn()} does not have the staticUID attribute. "
                         f"When using the option --static-uid each node must have the attribute staticUID."
                     )
                 )
@@ -161,8 +156,10 @@ def print_messages(
             if fieldNumber in usedKeys:
                 log.fatal(
                     (
-                        f"Aborting, due to collision for fieldNumber {fieldNumber}. "
-                        f"It is used by {node.get_fqn()} and {usedKeys[fieldNumber]}. "
+                        f"Aborting, due to collision for fieldNumber {
+                            fieldNumber}. "
+                        f"It is used by {node.get_fqn()} and {
+                            usedKeys[fieldNumber]}. "
                         "Consider changing the signals to alter the staticUID."
                     )
                 )
@@ -231,7 +228,8 @@ def cli(
         if not types_out_dir:
             types_out_dir = Path.cwd()
             log.warning(
-                f"No output directory given. Writing to: {types_out_dir.absolute()}"
+                f"No output directory given. Writing to: {
+                    types_out_dir.absolute()}"
             )
         traverse_data_type_tree(datatype_tree, static_uid, add_optional, types_out_dir)
 

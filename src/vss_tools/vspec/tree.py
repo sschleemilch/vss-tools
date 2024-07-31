@@ -1,3 +1,10 @@
+# Copyright (c) 2023 Contributors to COVESA
+#
+# This program and the accompanying materials are made available under the
+# terms of the Mozilla Public License 2.0 which is available at
+# https://www.mozilla.org/en-US/MPL/2.0/
+#
+# SPDX-License-Identifier: MPL-2.0
 from __future__ import annotations
 import re
 from typing import Any
@@ -7,8 +14,13 @@ from anytree import Node, PreOrderIter, findall
 from copy import deepcopy
 
 from vss_tools import log
-from vss_tools.vspec.model import VSSDataDatatype, get_vss_data, VSSDataBranch
-from vss_tools.vspec.datatypes import Datatypes
+from vss_tools.vspec.model import (
+    VSSDataDatatype,
+    VSSDataStruct,
+    get_vss_data,
+    VSSDataBranch,
+)
+from vss_tools.vspec.datatypes import Datatypes, dynamic_datatypes
 
 SEPARATOR = "."
 
@@ -28,10 +40,21 @@ class InvalidExpansionEntryException(Exception):
 class VSSNode(Node):  # type: ignore[misc]
     separator = SEPARATOR
 
-    def __init__(self, name: str, data: dict[str, Any], **kwargs: Any) -> None:
+    def __init__(
+        self, name: str, fqn: str | None, data: dict[str, Any], **kwargs: Any
+    ) -> None:
         super().__init__(name, **kwargs)
-        self.data = get_vss_data(data, name)
+        self.data = get_vss_data(data, fqn)
         self.uuid: str | None = None
+
+    def _post_attach(self, parent: VSSNode):
+        log.debug(
+            f"Got attached to parent='{parent.get_fqn()}', new fqn='{self.get_fqn()}'"
+        )
+        self.data.fqn = self.get_fqn(SEPARATOR)
+
+    def _post_detach(self, parent: VSSNode):
+        log.debug(f"'{self.get_fqn()}', detached from parent='{parent.get_fqn()}'")
 
     def get_fqn(self, sep: str = SEPARATOR) -> str:
         return sep.join([n.name for n in self.path])
@@ -57,9 +80,10 @@ class VSSNode(Node):  # type: ignore[misc]
         return None
 
     def connect(self, fqn: str, node: VSSNode) -> VSSNode | None:
-        if self.get_node_with_fqn(fqn):
+        connected = self.get_node_with_fqn(fqn)
+        if connected:
             log.info(f"Already connected: {fqn}")
-            return None
+            return connected
         target_fqn = get_expected_parent(fqn)
         if not target_fqn:
             return None
@@ -70,6 +94,7 @@ class VSSNode(Node):  # type: ignore[misc]
         else:
             auto_node = VSSNode(
                 get_name(target_fqn),
+                target_fqn,
                 {"type": "branch", "description": "Auto generated"},
             )
             node.parent = auto_node
@@ -127,7 +152,8 @@ class VSSNode(Node):  # type: ignore[misc]
                         ref_node.children,
                     )
                 )
-                log.debug(f"Adding to leafs: {add}")
+                if add:
+                    log.debug(f"Adding to leafs: {add}")
 
                 # If we are at the last iteration we need to set the root
                 # points to the leafs of our tree in order to attach
@@ -204,6 +230,8 @@ def get_expected_parent(name: str) -> str | None:
     parent = SEPARATOR.join(name.split(SEPARATOR)[:-1])
     if parent == name:
         return None
+    if parent == "":
+        return None
     return parent
 
 
@@ -253,15 +281,23 @@ def expand_instance(
         return roots
 
 
+def count_seperator(s: str) -> int:
+    return s.count(SEPARATOR)
+
+
 def build_tree(
     data: dict[str, Any], connect_orphans: bool = False
 ) -> tuple[VSSNode, dict[str, VSSNode]]:
     nodes: dict[str, VSSNode] = {}
 
-    for k, v in data.items():
-        node = VSSNode(get_name(k), v)
-        node.children = []
+    for k in sorted(data.keys(), key=count_seperator):
+        v: Any = data.get(k)
         parent = get_expected_parent(k)
+        node_name = get_name(k)
+        node = VSSNode(node_name, k, v)
+        if isinstance(node.data, VSSDataStruct):
+            dynamic_datatypes.add(k)
+        node.children = []
         if parent and parent in nodes:
             node.parent = nodes[parent]
         else:
@@ -298,7 +334,7 @@ def build_tree(
         log.warning(f"Orphans: {len(orphans)}")
 
     log.info(f"Tree, root='{root.name}', size={
-            root.size}, height={root.height}")
+        root.size}, height={root.height}")
     return root, orphans
 
 

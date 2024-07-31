@@ -4,11 +4,11 @@ A:
   description: Branch A.
 
 A.SignalA:
-  datatype: Types.Struct1
+  datatype: TypesA.Struct1
   type: sensor
   description: This is the first signal.
 
 A.SignalB:
-  datatype: Types.Struct2
+  datatype: TypesB.Struct2
   type: sensor
   description: This is the second signal.

@@ -1,6 +1,14 @@
+# Copyright (c) 2023 Contributors to COVESA
+#
+# This program and the accompanying materials are made available under the
+# terms of the Mozilla Public License 2.0 which is available at
+# https://www.mozilla.org/en-US/MPL/2.0/
+#
+# SPDX-License-Identifier: MPL-2.0
 from typing import Any, Callable
+from vss_tools import log
 
-dynamic_datatypes: list[str] = []
+dynamic_datatypes = set()
 dynamic_quantities: list[str] = []
 dynamic_units: dict[str, list] = {}
 
@@ -211,10 +219,26 @@ class Datatypes:
         return check in base_type[2] or check == base
 
 
-def get_all_datatypes() -> list[str]:
+def get_all_datatypes(fqn: str | None = None) -> list[str]:
     static_datatypes = [t[0] for t in Datatypes.types]
-    dynamic_array_datatypes = [f"{t}[]" for t in dynamic_datatypes]
-    return static_datatypes + dynamic_datatypes + dynamic_array_datatypes
+    fqn_namespaced_datatypes = set()
+    if fqn:
+        for t in dynamic_datatypes:
+            if fqn.startswith(".".join(t.split(".")[:-1])):
+                fqn_namespaced_datatypes.add(t.split(".")[-1])
+
+    log.debug(f"{fqn=}, {fqn_namespaced_datatypes=}")
+
+    dynamic_array_datatypes = [
+        f"{t}[]" for t in dynamic_datatypes | fqn_namespaced_datatypes
+    ]
+
+    return (
+        static_datatypes
+        + list(dynamic_datatypes)
+        + dynamic_array_datatypes
+        + list(fqn_namespaced_datatypes)
+    )
 
 
 def is_array(datatype: str) -> bool:

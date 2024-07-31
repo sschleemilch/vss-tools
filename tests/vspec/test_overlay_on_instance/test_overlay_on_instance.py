@@ -44,6 +44,6 @@ def test_expanded_overlay_no_type_datatype(tmp_path):
     process = subprocess.run(cmd.split(), capture_output=True, text=True)
     assert process.returncode != 0
     print(process.stdout)
-    assert "'C': 2 validation errors" in process.stdout
+    assert "'A.B.Row1.Left.C': 2 validation errors" in process.stdout
     assert "type" in process.stdout
     assert "description" in process.stdout

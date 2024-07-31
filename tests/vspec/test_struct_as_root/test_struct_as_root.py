@@ -18,9 +18,8 @@ def test_struct_as_root(tmp_path):
     struct = HERE / "struct1.vspec"
     spec = HERE / "test.vspec"
     output = tmp_path / "out.csv"
-    cmd = f"vspec export csv --types {struct} -u {TEST_UNITS} -q {TEST_QUANT} --vspec {spec} --output {output}"
+    cmd = f"vspec export csv --types {struct} -u {TEST_UNITS} -q {
+        TEST_QUANT} --vspec {spec} --output {output}"
     process = subprocess.run(cmd.split(), capture_output=True, text=True)
     assert process.returncode != 0
-    print(process.stdout)
-    assert "'SignalA': 1 validation error" in process.stdout
-    assert "datatype" in process.stdout
+    assert "RootTypesException" in process.stderr

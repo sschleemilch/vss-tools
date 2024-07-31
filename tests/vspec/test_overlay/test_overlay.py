@@ -54,7 +54,8 @@ def test_overlay_error(tmp_path):
     env["COLUMNS"] = "300"
     process = subprocess.run(cmd.split(), capture_output=True, text=True, env=env)
     assert process.returncode != 0
-    assert "'SignalXXXX': 1 validation error" in process.stdout
+    print(process.stdout)
+    assert "'A.SignalXXXX': 1 validation error" in process.stdout
     assert "datatype" in process.stdout
 
 
@@ -66,5 +67,6 @@ def test_overlay_branch_error(tmp_path):
 
     process = subprocess.run(cmd.split(), capture_output=True, text=True)
     assert process.returncode != 0
-    assert "'SignalAB': 1 validation error" in process.stdout
+    print(process.stdout)
+    assert "'A.AB.SignalAB': 1 validation error" in process.stdout
     assert "description" in process.stdout
