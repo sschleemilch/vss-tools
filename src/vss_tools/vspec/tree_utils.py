@@ -9,7 +9,7 @@
 from vss_tools import log
 from anytree import PreOrderIter, findall
 from pathlib import Path
-from vss_tools.vspec.model import VSSDataProperty, VSSDataStruct
+from vss_tools.vspec.model import VSSDataBranch, VSSDataProperty, VSSDataStruct
 from vss_tools.vspec.tree import (
     VSSNode,
     build_tree,
@@ -158,6 +158,20 @@ def get_types_root(
     return types_root
 
 
+def get_invalid_branch_nodes(root: VSSNode) -> list[VSSNode]:
+    invalid_nodes = []
+    branch_node: VSSNode
+    for branch_node in findall(
+        root, filter_=lambda n: isinstance(n.data, VSSDataBranch)
+    ):
+        if branch_node.parent is None:
+            continue
+        if not isinstance(branch_node.parent.data, VSSDataBranch):
+            log.warning(f"Parent of branch not a branch: {branch_node.get_fqn()}")
+            invalid_nodes.append(branch_node)
+    return invalid_nodes
+
+
 def get_trees(
     vspec: Path,
     include_dirs: tuple[Path, ...] = tuple(),
@@ -188,6 +202,13 @@ def get_trees(
     if uuid:
         root.add_uuids()
     root.remove_delete_nodes()
+
+    invalid_branch_nodes = get_invalid_branch_nodes(root)
+    if invalid_branch_nodes:
+        log.critical(
+            f"Invalid branch nodes: {[n.get_fqn() for n in invalid_branch_nodes]}"
+        )
+        exit(1)
 
     if types_root:
         try:
