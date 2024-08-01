@@ -14,6 +14,7 @@ from anytree import Node, PreOrderIter, findall
 from copy import deepcopy
 
 from vss_tools import log
+from vss_tools.vspec.vspec import deep_update
 from vss_tools.vspec.model import (
     VSSDataDatatype,
     VSSDataStruct,
@@ -104,81 +105,49 @@ class VSSNode(Node):  # type: ignore[misc]
 
     def expand_instances(self) -> None:
         instance_nodes = self.get_instance_nodes()
-        iterations = 0
-        while instance_nodes:
-            iterations += 1
-            for i, node in enumerate(instance_nodes):
-                # We make a copy of the current node
-                # since we need it as a template for instances
-                ref_node = deepcopy(node)
-                ref_node.children = []
+        instance_node: VSSNode
+        for instance_node in instance_nodes:
+            # Copy the reference node for creating instances
+            instance_node_copy = deepcopy(instance_node)
 
-                # We only want to add children to the template
-                # that are marked as instantiate=True
-                for c in node.children:
-                    if c.data.instantiate:
-                        c.parent = ref_node
+            # Remove children from copy that should not be instantiatet
+            for child in instance_node_copy.children:
+                if not child.data.instantiate:
+                    child.parent = None
 
-                # A dynamic list with points where new instances
-                # should be attached to
-                roots = [node]
+            # Remove children from instance node that need to be put on created instances instead
+            for child in instance_node.children:
+                if child.data.instantiate:
+                    child.parent = None
 
-                # Harmonizing instances attribute to be a list
-                instances = getattr(node.data, "instances", [])
-                if isinstance(instances, str):
-                    instances = [instances]
+            # Roots to attach generated nodes
+            # Initialized with the instance node itself
+            roots = [instance_node]
 
-                for instance in instances:
-                    roots = expand_instance(roots, ref_node, instance)
+            # We want to keep track of generated nodes
+            # in order to append common original children
+            # in the end
+            generated_instance_nodes = []
+            # On every iteration, we get back new nodes to attach new instances to (roots)
+            # as well as the nodes that have been generated
+            for instance in instance_node.data.instances:  # type: ignore
+                roots, generated = expand_instance(roots, instance_node_copy, instance)
+                generated_instance_nodes.extend(generated)
 
-                # Instances have been expanded, therefore remove them
-                # to not cause a recursion
-                node.data.instances = []  # type: ignore
+            # Since we do not want to append original children
+            # to intermediate generated nodes, we filter for the leafs
+            generated_instance_leaf_nodes = []
+            for node in generated_instance_nodes:
+                if node.is_leaf:
+                    generated_instance_leaf_nodes.append(node)
 
-                # We replace nodes in the expanded instance tree
-                # that have been defined to be overwritten in the vspec
-                # or an overlay
-                replaced = []
-                for c in ref_node.children:
-                    match = findall(node, filter_=lambda n: n.get_fqn() == c.get_fqn())
-                    if match:
-                        replaced.append(c)
-                        match[0].data = c.data
-                        match[0].children += c.children
+            # Appending all original children at the right place
+            # Possibly overwriting content if wished
+            add_expanded_instance_children(
+                generated_instance_leaf_nodes, instance_node, instance_node_copy
+            )
 
-                # The rest of the initial node children can be added
-                # to the current roots
-                add = tuple(
-                    filter(
-                        lambda x: x.get_fqn() not in [r.get_fqn() for r in replaced],
-                        ref_node.children,
-                    )
-                )
-                if add:
-                    log.debug(f"Adding to leafs: {add}")
-
-                # If we are at the last iteration we need to set the root
-                # points to the leafs of our tree in order to attach
-                # initially copied node childen correctly
-                if i == len(instance_nodes) - 1:
-                    roots = tuple()
-                    for n in node.children:
-                        if not n.data.instantiate:
-                            continue
-                        roots += findall(n, filter_=lambda x: x.is_leaf)
-
-                for root in roots:
-                    # for root in findall(node, filter_=lambda n: n.is_leaf):
-                    for a in deepcopy(add):
-                        # We can attach the node to the root point
-                        # unless it is already there (explicitly) set
-                        # in a vspec
-                        if not findall(root, filter_=lambda n: n.name == a.name):
-                            a.parent = root
-
-            instance_nodes = self.get_instance_nodes()
-        if iterations > 0:
-            log.info(f"Instance expansion, iterations={iterations}")
+            instance_node.data.instances = []  # type: ignore
 
     def remove_delete_nodes(self) -> None:
         size_before = self.size
@@ -224,6 +193,7 @@ class VSSNode(Node):  # type: ignore[misc]
 
     def as_flat_dict(self, with_extra_attributes: bool) -> dict[str, Any]:
         data = {}
+        node: VSSNode
         for node in PreOrderIter(self):
             key = node.get_fqn()
             data[key] = node.data.as_dict(with_extra_attributes)
@@ -260,31 +230,81 @@ def get_root_with_name(roots: list[VSSNode], name: str) -> VSSNode | None:
     return None
 
 
+def add_expanded_instance_children(
+    roots: list[VSSNode], instance_root: VSSNode, instance_copy: VSSNode
+):
+    change = []
+    add = tuple()
+    child: VSSNode
+    for child in instance_copy.children:
+        found = False
+        for node in PreOrderIter(instance_root):
+            if node.get_fqn() == child.get_fqn():
+                change.append([node, child])
+                found = True
+        if not found:
+            add += (child,)
+
+    root: VSSNode
+    for root in roots:
+        for a in add:
+            c = deepcopy(a)
+            c.parent = root
+
+    for nodes in change:
+        src = nodes[0]
+        src_data = src.data.as_dict(exclude_fields=["fqn"])
+        target = nodes[1]
+        target_data = target.data.as_dict(exclude_fields=["fqn"])
+        # We found a place for the node to be changed
+        # Exclude it from future processing
+        target.parent = None
+        deep_update(src_data, target_data)
+        src.data = get_vss_data(src_data, src.get_fqn())
+        src.children += target.children
+
+
 def expand_instance(
-    roots: list[VSSNode], ref_node: VSSNode, instance: list[str] | str
-) -> list[VSSNode]:
+    roots: list[VSSNode],
+    template: VSSNode,
+    instance: list[str] | str,
+) -> tuple[list[VSSNode], list[VSSNode]]:
+    # The behavior is different depending how instances have been defined
+    # Instances could be again a list of strings
+    # We want to harmonize that
+    # The info however is used to decide what new root points to return
     requested_instances = []
     if isinstance(instance, list):
         requested_instances = instance
     else:
         requested_instances = [instance]
 
-    new_node_names = []
+    names = []
+    # Node names can be given with a range syntax
+    # such as Foo[1,2]asdf
+    # We expand them here
     for i in requested_instances:
-        new_node_names.extend(expand_string(str(i)))
+        names.extend(expand_string(str(i)))
     nodes = []
-    for i in new_node_names:
+    for name in names:
         for root in roots:
-            node = deepcopy(ref_node)
-            node.name = i
+            # Need to copy the template so that we
+            # are not messing with the same node
+            node = deepcopy(template)
+            node.name = name
             node.data.instances = []  # type: ignore
             node.parent = root
-            node.children = []
             nodes.append(node)
-    if len(new_node_names) > 1 or isinstance(instance, list):
-        return nodes
+            node.children = []
+    # New roots to attach to get returned
+    # either when using the Row[1,2] syntax
+    # or when specifying instances as a list entry
+    # Otherwise next instance generation call will
+    # attach nodes to the same roots again
+    if len(names) > 1 or isinstance(instance, list):
+        return nodes, nodes
     else:
-        return roots
+        return roots, nodes
 
 
 def count_seperator(s: str) -> int:

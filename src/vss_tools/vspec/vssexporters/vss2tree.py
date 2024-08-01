@@ -18,6 +18,13 @@ from anytree import RenderTree
 @clo.quantities_opt
 @clo.units_opt
 @clo.types_opt
+@click.option(
+    "--attr",
+    "-a",
+    help="Render tree by this attribute",
+    default="name",
+    show_default=True,
+)
 def cli(
     vspec: Path,
     include_dirs: tuple[Path],
@@ -31,6 +38,7 @@ def cli(
     units: tuple[Path],
     types: tuple[Path],
     output: Path | None,
+    attr: str,
 ):
     """
     Export as YAML.
@@ -49,10 +57,10 @@ def cli(
         expand=expand,
     )
 
-    tree_content = RenderTree(tree).by_attr()
+    tree_content = RenderTree(tree).by_attr(attr)
     datatype_tree_content = ""
     if datatype_tree:
-        datatype_tree_content = RenderTree(datatype_tree).by_attr()
+        datatype_tree_content = RenderTree(datatype_tree).by_attr(attr)
 
     if output:
         with open(output, "w") as f:

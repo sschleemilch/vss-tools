@@ -80,14 +80,18 @@ class VSSData(BaseModel):
         additional_fields = set(self.model_dump().keys()) - set(defined_fields)
         return list(additional_fields)
 
-    def as_dict(self, with_extra_attributes: bool = True) -> dict[str, Any]:
-        exclude_fields = EXPORT_EXCLUDE_ATTRIBUTES
+    def as_dict(
+        self,
+        with_extra_attributes: bool = True,
+        exclude_fields: list[str] = EXPORT_EXCLUDE_ATTRIBUTES,
+    ) -> dict[str, Any]:
+        excludes = exclude_fields.copy()
         if not with_extra_attributes:
-            exclude_fields.extend(self.get_extra_attributes())
+            excludes.extend(self.get_extra_attributes())
         data = {
             k: v
             for k, v in dict(self).items()
-            if v is not None and k not in exclude_fields and v != []
+            if v is not None and k not in excludes and v != []
         }
         data["type"] = self.type.value
         return data
@@ -98,9 +102,11 @@ class VSSDataBranch(VSSData):
 
     @field_validator("instances")
     @classmethod
-    def fill_instances(cls, v: Any) -> list[str] | str:
+    def fill_instances(cls, v: Any) -> list[str]:
         if not (isinstance(v, str) or isinstance(v, list)):
             assert False, f"'{v}' is not a valid 'instances' content"
+        if isinstance(v, str):
+            return [v]
         return v
 
 
