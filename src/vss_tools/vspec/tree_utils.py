@@ -9,7 +9,12 @@
 from vss_tools import log
 from anytree import PreOrderIter, findall
 from pathlib import Path
-from vss_tools.vspec.model import VSSDataBranch, VSSDataProperty, VSSDataStruct
+from vss_tools.vspec.model import (
+    ModelValidationException,
+    VSSDataBranch,
+    VSSDataProperty,
+    VSSDataStruct,
+)
 from vss_tools.vspec.tree import (
     VSSNode,
     build_tree,
@@ -53,7 +58,7 @@ def load_quantities_and_units(
         else:
             log.warning(
                 f"No 'quantity' files defined. Default not existing: {
-                    default_quantity}"
+                    default_quantity.absolute()}"
             )
     if not units:
         default_unit = vspec_root / "units.yaml"
@@ -62,7 +67,7 @@ def load_quantities_and_units(
         else:
             log.warning(
                 f"No 'unit' files defined. Default not existing: {
-                    default_unit}"
+                    default_unit.absolute()}"
             )
 
     quantity_data = load_quantities(list(quantities))
@@ -167,7 +172,8 @@ def get_invalid_branch_nodes(root: VSSNode) -> list[VSSNode]:
         if branch_node.parent is None:
             continue
         if not isinstance(branch_node.parent.data, VSSDataBranch):
-            log.warning(f"Parent of branch not a branch: {branch_node.get_fqn()}")
+            log.warning(f"Parent of branch not a branch: {
+                        branch_node.get_fqn()}")
             invalid_nodes.append(branch_node)
     return invalid_nodes
 
@@ -187,11 +193,13 @@ def get_trees(
 ) -> tuple[VSSNode, VSSNode | None]:
     load_quantities_and_units(quantities, units, vspec.parent)
 
-    types_root = get_types_root(types, include_dirs)
-
-    vspec_data = load_vspec(include_dirs, [vspec] + list(overlays))
-
-    root, orphans = build_tree(vspec_data.data, connect_orphans=True)
+    try:
+        types_root = get_types_root(types, include_dirs)
+        vspec_data = load_vspec(include_dirs, [vspec] + list(overlays))
+        root, orphans = build_tree(vspec_data.data, connect_orphans=True)
+    except ModelValidationException as e:
+        log.critical(e)
+        exit(1)
 
     if orphans:
         log.error(f"Model has orphans\n{list(orphans.keys())}")
@@ -206,7 +214,8 @@ def get_trees(
     invalid_branch_nodes = get_invalid_branch_nodes(root)
     if invalid_branch_nodes:
         log.critical(
-            f"Invalid branch nodes: {[n.get_fqn() for n in invalid_branch_nodes]}"
+            f"Invalid branch nodes: {[n.get_fqn()
+                                      for n in invalid_branch_nodes]}"
         )
         exit(1)
 

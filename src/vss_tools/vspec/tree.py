@@ -49,12 +49,14 @@ class VSSNode(Node):  # type: ignore[misc]
 
     def _post_attach(self, parent: VSSNode):
         log.debug(
-            f"Got attached to parent='{parent.get_fqn()}', new fqn='{self.get_fqn()}'"
+            f"Got attached to parent='{parent.get_fqn()}', new fqn='{
+                self.get_fqn()}'"
         )
         self.data.fqn = self.get_fqn(SEPARATOR)
 
     def _post_detach(self, parent: VSSNode):
-        log.debug(f"'{self.get_fqn()}', detached from parent='{parent.get_fqn()}'")
+        log.debug(f"'{self.get_fqn()}', detached from parent='{
+                  parent.get_fqn()}'")
 
     def get_fqn(self, sep: str = SEPARATOR) -> str:
         return sep.join([n.name for n in self.path])
@@ -159,7 +161,11 @@ class VSSNode(Node):  # type: ignore[misc]
                 # points to the leafs of our tree in order to attach
                 # initially copied node childen correctly
                 if i == len(instance_nodes) - 1:
-                    roots = findall(node, filter_=lambda n: n.is_leaf)
+                    roots = tuple()
+                    for n in node.children:
+                        if not n.data.instantiate:
+                            continue
+                        roots += findall(n, filter_=lambda x: x.is_leaf)
 
                 for root in roots:
                     # for root in findall(node, filter_=lambda n: n.is_leaf):

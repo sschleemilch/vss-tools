@@ -21,7 +21,7 @@ import vss_tools.vspec.cli_options as clo
 from pathlib import Path
 from vss_tools import log
 from vss_tools.vspec.tree import VSSNode
-from vss_tools.vspec.tree_utils import vss2id_val
+from vss_tools.vspec.utils import vss2id_val
 from vss_tools.vspec.utils.idgen_utils import (
     fnv1_32_hash,
     get_all_keys_values,
@@ -148,7 +148,7 @@ def export_node(
 @clo.types_opt
 @click.option(
     "--validate-static-uid",
-    type=click.Path(dir_okay=False, readable=True, exists=True),
+    type=click.Path(dir_okay=False, readable=True, exists=True, path_type=Path),
     help="Validation file.",
 )
 @click.option("--validate-only", is_flag=True, help="Only validating. Not exporting.")

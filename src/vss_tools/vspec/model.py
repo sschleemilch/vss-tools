@@ -18,7 +18,6 @@ from pydantic import (
     ConfigDict,
 )
 
-from vss_tools import log
 from vss_tools.vspec.datatypes import (
     Datatypes,
     dynamic_quantities,
@@ -27,6 +26,7 @@ from vss_tools.vspec.datatypes import (
     is_array,
     resolve_datatype,
 )
+from rich.pretty import pretty_repr
 
 # TODO: Why do we exclude "arraysize"?
 # Added it because of "test_data_type_parsing.py"
@@ -35,6 +35,16 @@ EXPORT_EXCLUDE_ATTRIBUTES = ["delete", "instantiate", "fqn", "arraysize"]
 
 class ModelException(Exception):
     pass
+
+
+class ModelValidationException(Exception):
+    def __init__(self, fqn: str | None, ve: ValidationError):
+        self.fqn = fqn
+        self.ve = ve
+
+    def __str__(self) -> str:
+        errors = self.ve.errors(include_url=False)
+        return f"'{self.fqn}' has {len(errors)} model errors:\n{pretty_repr(errors)}"
 
 
 class NodeType(str, Enum):
@@ -255,11 +265,9 @@ def get_vss_data(data: dict[str, Any], fqn: str | None) -> VSSData:
         cls = TYPE_CLASS_MAP.get(model.type)
         if not cls:
             msg = f"No class type mapping for '{model.type}'"
-            log.critical(msg)
             raise ModelException(msg)
         model = cls(fqn=fqn, **data)
     except ValidationError as e:
-        log.error(f"'{fqn}': {e}")
-        raise e
+        raise ModelValidationException(fqn, e)
 
     return model

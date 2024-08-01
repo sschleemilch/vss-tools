@@ -22,5 +22,5 @@ def test_error(tmp_path):
     process = subprocess.run(cmd.split(), capture_output=True, text=True)
     assert process.returncode != 0
     print(process.stdout)
-    assert "input_value='bosch'" in process.stdout
-    assert "Input should be" in process.stdout
+    assert "input': 'bosch'" in process.stdout
+    assert "Input should be 'branch'" in process.stdout

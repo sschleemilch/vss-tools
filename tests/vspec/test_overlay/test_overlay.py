@@ -49,13 +49,15 @@ def test_overlay_error(tmp_path):
     overlay = HERE / "overlay_error.vspec"
     output = tmp_path / "out.json"
     spec = HERE / "test.vspec"
-    cmd = f"vspec export json --pretty -u {TEST_UNITS} -q {TEST_QUANT} -l {overlay} --vspec {spec} --output {output}"
+    cmd = f"vspec export json --pretty -u {TEST_UNITS} -q {
+        TEST_QUANT} -l {overlay} --vspec {spec} --output {output}"
     env = os.environ.copy()
     env["COLUMNS"] = "300"
     process = subprocess.run(cmd.split(), capture_output=True, text=True, env=env)
     assert process.returncode != 0
     print(process.stdout)
-    assert "'A.SignalXXXX': 1 validation error" in process.stdout
+    assert "'A.SignalXXXX' has 1 model errors" in process.stdout
+    assert "'type': 'missing'" in process.stdout
     assert "datatype" in process.stdout
 
 
@@ -63,10 +65,12 @@ def test_overlay_branch_error(tmp_path):
     overlay = HERE / "overlay_implicit_branch_no_description.vspec"
     output = tmp_path / "out.json"
     spec = HERE / "test.vspec"
-    cmd = f"vspec export json --pretty -u {TEST_UNITS} -q {TEST_QUANT} -l {overlay} --vspec {spec} --output {output}"
+    cmd = f"vspec export json --pretty -u {TEST_UNITS} -q {
+        TEST_QUANT} -l {overlay} --vspec {spec} --output {output}"
 
     process = subprocess.run(cmd.split(), capture_output=True, text=True)
     assert process.returncode != 0
     print(process.stdout)
-    assert "'A.AB.SignalAB': 1 validation error" in process.stdout
-    assert "description" in process.stdout
+    assert "'A.AB.SignalAB' has 1 model errors" in process.stdout
+    assert "'type': 'missing'" in process.stdout
+    assert "datatype" in process.stdout

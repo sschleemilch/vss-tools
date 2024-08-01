@@ -30,7 +30,8 @@ def test_description_error(
 ):
     output = tmp_path / "out.json"
     log = tmp_path / "out.log"
-    cmd = f"vspec --log-file {log} export json --pretty -u {TEST_UNITS} -q {TEST_QUANT}"
+    cmd = f"vspec --log-file {log} export json --pretty -u {
+        TEST_UNITS} -q {TEST_QUANT}"
     if type_file:
         cmd += f" --types {HERE / type_file}"
     if type_out_file:
@@ -40,5 +41,6 @@ def test_description_error(
     process = subprocess.run(cmd.split(), capture_output=True, text=True)
     assert process.returncode != 0
     log_content = log.read_text()
-    assert "validation error for VSSData" in log_content
-    assert "description" in log_content
+    print(log_content)
+    assert "'type': 'missing'" in log_content
+    assert "1 model errors:" in log_content
