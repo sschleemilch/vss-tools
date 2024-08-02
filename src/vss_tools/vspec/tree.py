@@ -52,6 +52,11 @@ class NoVSSDataException(Exception):
 
 
 class RawNodeResolveException(Exception):
+    """
+    Exception that pretty formats the Pydantic
+    ValidationError
+    """
+
     def __init__(self, fqn: str | None, ve: ValidationError):
         self.fqn = fqn
         self.ve = ve
@@ -62,6 +67,11 @@ class RawNodeResolveException(Exception):
 
 
 class VSSNode(Node):  # type: ignore[misc]
+    """
+    Our Anytree node class
+    It contains the actual node data in the `data` attribute
+    """
+
     separator = SEPARATOR
 
     def __init__(
@@ -72,6 +82,10 @@ class VSSNode(Node):  # type: ignore[misc]
         self.uuid: str | None = None
 
     def _post_attach(self, parent: VSSNode):
+        """
+        Updating the data fqn when getting reattached.
+        We need the fqn in the data for validation purposes.
+        """
         log.debug(
             f"Got attached to parent='{parent.get_fqn()}', new fqn='{self.get_fqn()}'"
         )
@@ -90,6 +104,9 @@ class VSSNode(Node):  # type: ignore[misc]
         return sep.join([n.name for n in self.path])
 
     def resolve_vss_nodes(self) -> None:
+        """
+        Resolves raw nodes into "higher" nodes
+        """
         vss_raw_nodes = findall(
             self, filter_=lambda node: isinstance(node.data, VSSRaw)
         )
@@ -106,6 +123,11 @@ class VSSNode(Node):  # type: ignore[misc]
         return None
 
     def merge(self, other: VSSNode) -> None:
+        """
+        Merges this node with another one.
+        The data of the other node has priority.
+        Also merges children if their fqn matches recursively
+        """
         if self.get_fqn() != other.get_fqn():
             raise NotMergeableException(f"{self.get_fqn()} != {other.get_fqn()}")
 
@@ -144,6 +166,14 @@ class VSSNode(Node):  # type: ignore[misc]
         return None
 
     def connect(self, fqn: str, node: VSSNode) -> VSSNode | None:
+        """
+        Connects a node with a given fqn to this one
+        It automatically generates missing branches in between.
+        However, we are not generating valid branch entries
+        (description is missing). This is on purpose so that
+        the tree in the end fails if those values are not getting
+        filled
+        """
         connected = self.get_node_with_fqn(fqn)
         if connected:
             log.info(f"Already connected: {fqn}")
@@ -165,9 +195,16 @@ class VSSNode(Node):  # type: ignore[misc]
             return self.connect(target_fqn, auto_node)
 
     def expand_instances(self) -> None:
+        """
+        Expanding all nodes that have configured
+        "instances".
+        It will generate new nodes below this one
+        """
         instance_nodes = self.get_instance_nodes()
         instance_node: VSSNode
         iterations = 0
+        # We need to setup a loop here since it could be that
+        # we add nodes that again have instances configured
         while instance_nodes:
             iterations += 1
             for instance_node in instance_nodes:
@@ -229,6 +266,10 @@ class VSSNode(Node):  # type: ignore[misc]
             )
 
     def get_naming_violations(self) -> list[list[str]]:
+        """
+        Gets a list of nodes that are violating the naming conventions
+        It returns a list of fqn's and their violation reason
+        """
         violations = []
         log.info(f"Checking node name compliance for {self.name}")
         camel_case_pattern = re.compile("[A-Z][A-Za-z0-9]*$")
@@ -245,6 +286,10 @@ class VSSNode(Node):  # type: ignore[misc]
         return violations
 
     def get_extra_attributes(self, allowed: tuple[str, ...]) -> list[list[str]]:
+        """
+        Gets a list of attributes that are not in the vss model
+        and not explicitly allowed in the given list
+        """
         violations = []
         for node in PreOrderIter(self):
             for field in node.data.get_extra_attributes():
@@ -255,6 +300,10 @@ class VSSNode(Node):  # type: ignore[misc]
         return violations
 
     def as_flat_dict(self, with_extra_attributes: bool) -> dict[str, Any]:
+        """
+        Generates a flat dict and whether to include
+        user attributes or not
+        """
         data = {}
         node: VSSNode
         for node in PreOrderIter(self):
@@ -266,6 +315,10 @@ class VSSNode(Node):  # type: ignore[misc]
 
 
 def get_expected_parent(name: str) -> str | None:
+    """
+    Returns the parent of a given fqn
+    E.g. "A.B.C" -> "A.B"
+    """
     parent = SEPARATOR.join(name.split(SEPARATOR)[:-1])
     if parent == name:
         return None
@@ -279,6 +332,10 @@ def get_name(key: str) -> str:
 
 
 def find_children_ids(node_ids: list[str], name: str) -> list[str]:
+    """
+    Gets all direnct children of a given name.
+    E.g. "A.B" -> ["A.B.C", "A.B.D"]
+    """
     ids = []
     for i in node_ids:
         if get_expected_parent(i) == name:
@@ -286,16 +343,18 @@ def find_children_ids(node_ids: list[str], name: str) -> list[str]:
     return ids
 
 
-def get_root_with_name(roots: list[VSSNode], name: str) -> VSSNode | None:
-    for root in roots:
-        if root.name == name:
-            return root
-    return None
-
-
 def add_expanded_instance_children(
     roots: list[VSSNode], instance_root: VSSNode, instance_copy: VSSNode
 ):
+    """
+    Adds initial children of node that started the instance expansion (instance_root)
+    The initial state of the node has been freezed in instance_copy.
+    The current points in the tree where to attach children is in roots
+    """
+
+    # We want to find nodes to add to the roots.
+    # Nodes that area already in the instance_root
+    # Should not be readded to the roots but should be replaced
     add = []
     child: VSSNode
     for child in instance_copy.children:
@@ -303,11 +362,15 @@ def add_expanded_instance_children(
         if not match:
             add.append(child)
 
+    # Adding them..
     for root in roots:
         for a in add:
             c = deepcopy(a)
             c.parent = root
 
+    # Now searching for all initial children
+    # that are in the current tree
+    # Those are the ones we need to update
     change = []
     for child in instance_copy.children:
         match = instance_root.get_child(child.get_fqn())
@@ -317,9 +380,9 @@ def add_expanded_instance_children(
     for nodes in change:
         target = nodes[0]
         src = nodes[1]
+        target.merge(src)
         # We found a place for the node to be changed
         # Exclude it from future processing
-        target.merge(src)
         src.parent = None
 
 
@@ -328,6 +391,15 @@ def expand_instance(
     template: VSSNode,
     instance: list[str] | str,
 ) -> tuple[list[VSSNode], list[VSSNode]]:
+    """
+    Expands a given instance.
+    roots represents the current points where to attach
+    new nodes to. Depending on how many new nodes
+    will be generated or how the instance was provided,
+    we are returning the initial roots or new roots with the
+    generated nodes.
+    template contains a node copy for generating nodes
+    """
     # The behavior is different depending how instances have been defined
     # Instances could be again a list of strings
     # We want to harmonize that
@@ -373,6 +445,11 @@ def count_seperator(s: str) -> int:
 def build_tree(
     data: dict[str, Any], connect_orphans: bool = False
 ) -> tuple[VSSNode, dict[str, VSSNode]]:
+    """
+    Building a tree out of raw dictionary data.
+    Also tries to find orphans and connects orphans
+    if desired.
+    """
     nodes: dict[str, VSSNode] = {}
 
     for k in sorted(data.keys(), key=count_seperator):
@@ -380,8 +457,14 @@ def build_tree(
         parent = get_expected_parent(k)
         node_name = get_name(k)
         node = VSSNode(node_name, k, v)
+        # If this is a datatype tree we should add the
+        # struct node as a datatype
         if isinstance(node.data, VSSDataStruct):
             dynamic_datatypes.add(k)
+
+        # We connect a parent and children
+        # Probably we should be fine only connecting
+        # children since we are sorting for separators
         node.children = []
         if parent and parent in nodes:
             node.parent = nodes[parent]
@@ -392,6 +475,7 @@ def build_tree(
 
     roots = []
     orphans = {}
+    # Finding roots and orphans based on presence of a separator
     for fqn, node in nodes.items():
         if not node.parent:
             if SEPARATOR not in fqn:

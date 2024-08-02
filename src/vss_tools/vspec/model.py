@@ -47,8 +47,19 @@ class NodeType(str, Enum):
 
 
 class VSSRaw(BaseModel):
-    model_config = ConfigDict(extra="allow")
+    """
+    Most low level model that accepts everything
+    In the end we need that to support the scenario
+    of being able to overlay things that have been
+    unrolled through instances.
+    Not only that but to support defining those elements
+    incomplete in terms of our model.
+    After expanding instances we convert all raw nodes
+    """
+
     fqn: str | None = None
+
+    model_config = ConfigDict(extra="allow")
 
     def get_extra_attributes(self) -> list[str]:
         defined_fields = self.model_fields.keys()
@@ -98,6 +109,11 @@ class VSSDataBranch(VSSData):
     @field_validator("instances")
     @classmethod
     def fill_instances(cls, v: Any) -> list[str]:
+        """
+        Instances can be specified as a string or a list
+        and even of a list of lists.
+        Normalizing it to be a list
+        """
         if not (isinstance(v, str) or isinstance(v, list)):
             assert False, f"'{v}' is not a valid 'instances' content"
         if isinstance(v, str):
@@ -143,6 +159,10 @@ class VSSDataDatatype(VSSData):
 
     @model_validator(mode="after")
     def check_type_arraysize_consistency(self) -> Self:
+        """
+        Checks that arraysize is only set when
+        datatype is an array
+        """
         if self.arraysize is not None:
             assert is_array(
                 self.datatype
@@ -151,6 +171,10 @@ class VSSDataDatatype(VSSData):
 
     @model_validator(mode="after")
     def check_type_default_consistency(self) -> Self:
+        """
+        Checks that the default value
+        is consistent with the given datatype
+        """
         if self.default is not None:
             if is_array(self.datatype):
                 assert isinstance(
@@ -175,6 +199,10 @@ class VSSDataDatatype(VSSData):
 
     @model_validator(mode="after")
     def check_default_values_allowed(self) -> Self:
+        """
+        Checks that the given default values
+        are in the allowed list
+        """
         if self.default and self.allowed:
             values = self.default
             if not isinstance(self.default, list):
@@ -187,6 +215,10 @@ class VSSDataDatatype(VSSData):
 
     @model_validator(mode="after")
     def check_allowed_datatype_consistency(self) -> Self:
+        """
+        Checks that allowed values are valid
+        datatypes
+        """
         if self.allowed:
             for v in self.allowed:
                 assert Datatypes.is_datatype(
@@ -219,6 +251,10 @@ class VSSDataDatatype(VSSData):
 
     @model_validator(mode="after")
     def check_datatype_matching_allowed_unit_datatypes(self) -> Self:
+        """
+        Checks that the datatype conforms to the allowed-datatypes
+        referenced in the unit if given
+        """
         if self.unit:
             assert Datatypes.get_type(
                 self.datatype
@@ -261,6 +297,10 @@ TYPE_CLASS_MAP = {
 
 
 def resolve_vss_raw(model: VSSRaw) -> VSSData:
+    """
+    Resolves a raw model to the actual node that
+    it should be validated to
+    """
     model = VSSData(**model.model_dump(exclude_none=True))
     cls = TYPE_CLASS_MAP.get(model.type)
     if not cls:
@@ -270,6 +310,10 @@ def resolve_vss_raw(model: VSSRaw) -> VSSData:
 
 
 def get_vss_raw(data: dict[str, Any], fqn: str | None) -> VSSRaw:
+    """
+    Tries to build a VSSNode and falls back to the
+    raw node
+    """
     model = VSSRaw(fqn=fqn, **data)
     try:
         model = resolve_vss_raw(model)

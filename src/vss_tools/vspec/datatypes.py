@@ -8,8 +8,10 @@
 from typing import Any, Callable, Set
 from vss_tools import log
 
+# Global objects to be extended by other code parts
 dynamic_datatypes: Set[str] = set()
 dynamic_quantities: list[str] = []
+# This one contains the unit name as well as the list of allowed-datatypes
 dynamic_units: dict[str, list] = {}
 
 
@@ -97,6 +99,10 @@ def is_numeric(value: Any) -> bool:
 
 
 class Datatypes:
+    # Types contain a tuple of the type name, the validation function whether
+    # a value of type Any is a certain datatype
+    # The last entry is a list of included subtypes
+    # E.g. a unit8 is a valid uint16 usw..
     UINT8: tuple[str, Callable[[Any], bool], list[str]] = "uint8", is_uint8, []
     UINT8_ARRAY: tuple[str, Callable[[Any], bool], list[str]] = "uint8[]", is_uint8, []
     INT8: tuple[str, Callable[[Any], bool], list[str]] = "int8", is_int8, []
@@ -220,6 +226,14 @@ class Datatypes:
 
 
 def get_fqn_namespaced_datatypes(fqn: str | None = None) -> dict[str, str]:
+    """
+    We want to be able to reference datatypes from within the same file
+    or same namespace since we support structs in structs
+
+    For instance if we have the struct Types.A.B.C
+    and we have another struct Types.A.B.D then the D struct
+    should be able to reference C as a datatype
+    """
     if not fqn:
         return {}
     fqn_namespaced_datatypes = {}
@@ -228,6 +242,10 @@ def get_fqn_namespaced_datatypes(fqn: str | None = None) -> dict[str, str]:
         if fqn.startswith(t):
             continue
 
+        # fqn: Types.A.B.C.x_property
+        # t: Types.A.B.D
+        # We are checking whether fqn starts with Types.A.B
+        # in this case we add {D: Types.A.B.D}
         if fqn.startswith(".".join(t.split(".")[:-1])):
             fqn_namespaced_datatypes[(t.split(".")[-1])] = t
 
@@ -236,6 +254,10 @@ def get_fqn_namespaced_datatypes(fqn: str | None = None) -> dict[str, str]:
 
 
 def get_dynamic_datatypes(fqn: str | None = None) -> list[str]:
+    """
+    Aggregator to gather all custom datatypes for a given fqn
+    The fqn is needed to support the namespaced custom datatypes
+    """
     fqn_namespaced_datatypes = set(get_fqn_namespaced_datatypes(fqn).keys())
     dynamic_array_datatypes = [
         f"{t}[]" for t in dynamic_datatypes | fqn_namespaced_datatypes
@@ -254,6 +276,10 @@ def get_all_datatypes(fqn: str | None = None) -> list[str]:
 
 
 def resolve_datatype(datatype: str, fqn: str | None) -> str:
+    """
+    Resolves a possible shortened namespaced type into the
+    fully qualified types
+    """
     if not fqn:
         return datatype
 
