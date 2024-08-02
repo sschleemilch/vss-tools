@@ -106,7 +106,8 @@ def validate_static_uids(signals_dict: dict, validation_tree: VSSNode, strict: b
         for key, value in signals_dict.items():
             matched_uids = []
             for id_validation_tree, other_node in enumerate(validation_tree_nodes):
-                if value["staticUID"] == other_node.data.staticUID:
+                other_sUID = getattr(other_node.data, "staticUID", None)
+                if value["staticUID"] == other_sUID:
                     if key != other_node.get_fqn():
                         _ = check_semantics(key, value, strict)
                     matched_uids.append((key, id_validation_tree))

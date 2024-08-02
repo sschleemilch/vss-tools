@@ -49,6 +49,8 @@ def generate_split_id(
     datatype = getattr_nn(data, "datatype", "")
     unit = getattr_nn(data, "unit", "")
     allowed = getattr_nn(data, "allowed", "")
+    if allowed == []:
+        allowed = ""
     min = getattr_nn(data, "min", "")
     max = getattr_nn(data, "max", "")
     identifier = get_node_identifier_bytes(
@@ -108,11 +110,11 @@ def export_node(
     data[node_path] = {"staticUID": f"{node_id}"}
     data[node_path]["description"] = node_data.description
     data[node_path]["type"] = str(node_data.type.value)
-    if hasattr(node_data, "unit"):
+    if getattr(node_data, "unit", None):
         data[node_path]["unit"] = getattr(node_data, "unit")
     if hasattr(node_data, "datatype"):
         data[node_path]["datatype"] = getattr(node_data, "datatype")
-    if hasattr(node_data, "allowed"):
+    if getattr(node_data, "allowed", None):
         data[node_path]["allowed"] = getattr(node_data, "allowed")
 
     min = getattr(node_data, "min", None)
@@ -214,7 +216,6 @@ def cli(
             quantities=quantities,
             units=units,
             types=types,
-            overlays=overlays,
             expand=expand,
         )
         vss2id_val.validate_static_uids(signals_yaml_dict, validation_tree, strict)

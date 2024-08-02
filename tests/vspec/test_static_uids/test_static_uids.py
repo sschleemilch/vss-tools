@@ -15,7 +15,6 @@ from typing import Dict
 import os
 import subprocess
 import pytest
-import vss_tools.vspec as vspec
 
 import vss_tools.vspec.vssexporters.vss2id as vss2id
 import yaml
@@ -23,6 +22,7 @@ import yaml
 from vss_tools.vspec.utils.idgen_utils import get_all_keys_values
 from vss_tools.vspec.tree import VSSNode
 from vss_tools.vspec.datatypes import Datatypes
+from vss_tools.vspec.tree_utils import get_trees
 
 from pathlib import Path
 
@@ -139,13 +139,9 @@ def test_export_node(
 ):
     vspec_file = HERE / test_file
     validation_file = HERE / validation_file
-    units = str(HERE / "test_vspecs/units.yaml")
+    unit_files = (HERE / "test_vspecs/units.yaml",)
 
-    vspec.load_units(str(vspec_file), [units])
-    tree = vspec.load_tree(
-        str(vspec_file),
-        include_paths=["."],
-    )
+    tree, _ = get_trees(vspec=vspec_file, units=unit_files, quantities=(TEST_QUANT,))
     yaml_dict: Dict[str, str] = {}
     vss2id.export_node(yaml_dict, tree, id_counter=0, strict_mode=False)
 
@@ -214,7 +210,7 @@ def test_semantic(caplog: pytest.LogCaptureFixture, validation_file: str, tmp_pa
     output = tmp_path / "out.vspec"
     validation = HERE / validation_file
     args = f"vspec export id --vspec {spec} --output {
-        output} --validate-static-uid {validation}"
+        output} --validate-static-uid {validation} -q {TEST_QUANT}"
     process = subprocess.run(args.split(), capture_output=True, text=True)
     assert "SEMANTIC NAME CHANGE" in process.stdout
 
@@ -311,6 +307,7 @@ def test_overlay(caplog: pytest.LogCaptureFixture, tmp_path):
     clas = shlex.split(get_cla_test(spec, tmp_path, overlay))
     cmd += clas
     process = subprocess.run(cmd, capture_output=True, text=True)
+    print(process.stdout)
     assert "ADDED ATTRIBUTE" in process.stdout
 
     output = tmp_path / "out.vspec"
