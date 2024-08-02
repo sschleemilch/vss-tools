@@ -26,7 +26,6 @@ from vss_tools.vspec.datatypes import (
     is_array,
     resolve_datatype,
 )
-from rich.pretty import pretty_repr
 
 # TODO: Why do we exclude "arraysize"?
 # Added it because of "test_data_type_parsing.py"
@@ -35,16 +34,6 @@ EXPORT_EXCLUDE_ATTRIBUTES = ["delete", "instantiate", "fqn", "arraysize"]
 
 class ModelException(Exception):
     pass
-
-
-class ModelValidationException(Exception):
-    def __init__(self, fqn: str | None, ve: ValidationError):
-        self.fqn = fqn
-        self.ve = ve
-
-    def __str__(self) -> str:
-        errors = self.ve.errors(include_url=False)
-        return f"'{self.fqn}' has {len(errors)} model errors:\n{pretty_repr(errors)}"
 
 
 class NodeType(str, Enum):
@@ -56,24 +45,9 @@ class NodeType(str, Enum):
     PROPERTY = "property"
 
 
-class VSSData(BaseModel):
+class VSSRaw(BaseModel):
     model_config = ConfigDict(extra="allow")
     fqn: str | None = None
-    type: NodeType
-    description: str
-    comment: str | None = None
-    delete: bool = False
-    deprecation: str | None = None
-    constUID: str | None = None
-    fka: list[str] = []
-    instantiate: bool = True
-
-    @field_validator("constUID")
-    @classmethod
-    def check_const_uid_format(cls, v: str) -> str:
-        pattern = r"^0x[0-9A-Fa-f]{8}$"
-        assert bool(re.match(pattern, v)), f"'{v}' is not a valid 'constUID'"
-        return v
 
     def get_extra_attributes(self) -> list[str]:
         defined_fields = self.model_fields.keys()
@@ -90,11 +64,31 @@ class VSSData(BaseModel):
             excludes.extend(self.get_extra_attributes())
         data = {
             k: v
-            for k, v in dict(self).items()
-            if v is not None and k not in excludes and v != []
+            for k, v in self.model_dump(
+                mode="json", exclude_none=True, exclude=set(excludes)
+            ).items()
+            if v != []
         }
-        data["type"] = self.type.value
         return data
+
+
+class VSSData(VSSRaw):
+    model_config = ConfigDict(extra="allow")
+    type: NodeType
+    description: str
+    comment: str | None = None
+    delete: bool = False
+    deprecation: str | None = None
+    constUID: str | None = None
+    fka: list[str] = []
+    instantiate: bool = True
+
+    @field_validator("constUID")
+    @classmethod
+    def check_const_uid_format(cls, v: str) -> str:
+        pattern = r"^0x[0-9A-Fa-f]{8}$"
+        assert bool(re.match(pattern, v)), f"'{v}' is not a valid 'constUID'"
+        return v
 
 
 class VSSDataBranch(VSSData):
@@ -265,15 +259,19 @@ TYPE_CLASS_MAP = {
 }
 
 
-def get_vss_data(data: dict[str, Any], fqn: str | None) -> VSSData:
-    try:
-        model = VSSData(**data)
-        cls = TYPE_CLASS_MAP.get(model.type)
-        if not cls:
-            msg = f"No class type mapping for '{model.type}'"
-            raise ModelException(msg)
-        model = cls(fqn=fqn, **data)
-    except ValidationError as e:
-        raise ModelValidationException(fqn, e)
+def resolve_vss_raw(model: VSSRaw) -> VSSData:
+    model = VSSData(**model.model_dump(exclude_none=True))
+    cls = TYPE_CLASS_MAP.get(model.type)
+    if not cls:
+        raise ModelException()
+    model = cls(**model.model_dump(exclude_none=True))
+    return model  # type: ignore
 
+
+def get_vss_raw(data: dict[str, Any], fqn: str | None) -> VSSRaw:
+    model = VSSRaw(fqn=fqn, **data)
+    try:
+        model = resolve_vss_raw(model)
+    except (ValidationError, ModelException):
+        return model
     return model

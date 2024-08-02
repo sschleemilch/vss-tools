@@ -50,29 +50,30 @@ def print_franca_content(file: TextIOWrapper, root: VSSNode, with_uuid: bool) ->
     output = ""
     node: VSSNode
     for node in PreOrderIter(root):
+        data = node.get_vss_data()
         if node.parent:
             if output:
                 output += ",\n{"
             else:
                 output += "{"
             output += f'\tname: "{node.get_fqn()}"'
-            output += f',\n\ttype: "{node.data.type.value}"'
-            output += f',\n\tdescription: "{node.data.description}"'
-            datatype = getattr(node.data, "datatype", None)
+            output += f',\n\ttype: "{data.type.value}"'
+            output += f',\n\tdescription: "{data.description}"'
+            datatype = getattr(data, "datatype", None)
             if datatype:
                 output += f',\n\tdatatype: "{datatype}"'
             if with_uuid:
                 output += f',\n\tuuid: "{node.uuid}"'
-            unit = getattr(node.data, "unit", None)
+            unit = getattr(data, "unit", None)
             if unit:
                 output += f',\n\tunit: "{unit}"'
-            min = getattr(node.data, "min", None)
+            min = getattr(data, "min", None)
             if min is not None:
                 output += f",\n\tmin: {min}"
-            max = getattr(node.data, "max", None)
+            max = getattr(data, "max", None)
             if max is not None:
                 output += f",\n\tmax: {max}"
-            allowed = getattr(node.data, "allowed", None)
+            allowed = getattr(data, "allowed", None)
             if allowed:
                 output += f",\n\tallowed: {allowed}"
             output += "\n}"

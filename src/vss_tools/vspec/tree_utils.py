@@ -10,15 +10,11 @@ from vss_tools import log
 from anytree import PreOrderIter, findall
 from pathlib import Path
 from vss_tools.vspec.model import (
-    ModelValidationException,
     VSSDataBranch,
     VSSDataProperty,
     VSSDataStruct,
 )
-from vss_tools.vspec.tree import (
-    VSSNode,
-    build_tree,
-)
+from vss_tools.vspec.tree import VSSNode, build_tree, RawNodeResolveException
 from vss_tools.vspec.vspec import load_vspec
 from vss_tools.vspec.units_quantities import load_quantities, load_units
 from vss_tools.vspec.datatypes import (
@@ -111,7 +107,7 @@ def check_extra_attribute_violations(
 
 
 def get_property_orphans(root: VSSNode | None) -> list[VSSNode]:
-    orphans = []
+    orphans: list[VSSNode] = []
     if root is None:
         return orphans
     pnode: VSSNode
@@ -154,6 +150,13 @@ def get_types_root(
     if not all(["." in t for t in dynamic_datatypes]):
         raise RootTypesException()
 
+    if types_root:
+        try:
+            types_root.resolve_vss_nodes()
+        except RawNodeResolveException as e:
+            log.critical(e)
+            exit(1)
+
     property_orphans = get_property_orphans(types_root)
     if property_orphans:
         log.error(f"Property orphans={len(property_orphans)}")
@@ -193,13 +196,9 @@ def get_trees(
 ) -> tuple[VSSNode, VSSNode | None]:
     load_quantities_and_units(quantities, units, vspec.parent)
 
-    try:
-        types_root = get_types_root(types, include_dirs)
-        vspec_data = load_vspec(include_dirs, [vspec] + list(overlays))
-        root, orphans = build_tree(vspec_data.data, connect_orphans=True)
-    except ModelValidationException as e:
-        log.critical(e)
-        exit(1)
+    types_root = get_types_root(types, include_dirs)
+    vspec_data = load_vspec(include_dirs, [vspec] + list(overlays))
+    root, orphans = build_tree(vspec_data.data, connect_orphans=True)
 
     if orphans:
         log.error(f"Model has orphans\n{list(orphans.keys())}")
@@ -209,7 +208,14 @@ def get_trees(
         root.expand_instances()
     if uuid:
         root.add_uuids()
-    root.remove_delete_nodes()
+
+    try:
+        root.resolve_vss_nodes()
+    except RawNodeResolveException as e:
+        log.critical(e)
+        exit(1)
+
+    root.delete_nodes(findall(root, filter_=lambda n: n.get_vss_data().delete))
 
     invalid_branch_nodes = get_invalid_branch_nodes(root)
     if invalid_branch_nodes:

@@ -96,7 +96,7 @@ def to_gql_type(node: VSSNode, additional_leaf_fields: list) -> GraphQLObjectTyp
     return GraphQLObjectType(
         name=node.get_fqn("_"),
         fields=fields,
-        description=node.data.description,
+        description=node.get_vss_data().description,
     )
 
 
@@ -134,10 +134,11 @@ def branch_fields(
 
 
 def field(node: VSSNode, description_prefix="", type=GraphQLString) -> GraphQLField:
+    data = node.get_vss_data()
     return GraphQLField(
         type,
-        deprecation_reason=node.data.deprecation,
-        description=f"{description_prefix}{node.data.description}",
+        deprecation_reason=data.deprecation,
+        description=f"{description_prefix}{data.description}",
     )
 
 

@@ -71,6 +71,6 @@ def test_overlay_branch_error(tmp_path):
     process = subprocess.run(cmd.split(), capture_output=True, text=True)
     assert process.returncode != 0
     print(process.stdout)
-    assert "'A.AB.SignalAB' has 1 model errors" in process.stdout
+    assert "'A.AB' has 1 model errors" in process.stdout
     assert "'type': 'missing'" in process.stdout
-    assert "datatype" in process.stdout
+    assert "description" in process.stdout

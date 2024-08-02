@@ -57,62 +57,63 @@ def export_node(
 ):
     """Preparing nodes for JSON schema output."""
     # keyword with X- sign are left for extensions and they are not part of official JSON schema
+    data = node.get_vss_data()
     json_dict[node.name] = {
-        "description": node.data.description,
+        "description": data.description,
     }
 
-    if isinstance(node.data, VSSDataDatatype):
-        json_dict[node.name]["type"] = type_map[node.data.datatype]
+    if isinstance(data, VSSDataDatatype):
+        json_dict[node.name]["type"] = type_map[data.datatype]
 
-    min = getattr(node.data, "min", None)
+    min = getattr(data, "min", None)
     if min is not None:
         json_dict[node.name]["minimum"] = min
 
-    max = getattr(node.data, "max", None)
+    max = getattr(data, "max", None)
     if max is not None:
         json_dict[node.name]["maximum"] = max
 
-    allowed = getattr(node.data, "allowed", None)
+    allowed = getattr(data, "allowed", None)
     if allowed:
         json_dict[node.name]["enum"] = allowed
 
-    default = getattr(node.data, "default", None)
+    default = getattr(data, "default", None)
     if default:
         json_dict[node.name]["default"] = default
 
-    if isinstance(node.data, VSSDataStruct):
+    if isinstance(data, VSSDataStruct):
         json_dict[node.name]["type"] = "object"
 
     if all_extended_attributes:
-        json_dict[node.name]["x-VSStype"] = node.data.type.value
-        datatype = getattr(node.data, "datatype", None)
+        json_dict[node.name]["x-VSStype"] = data.type.value
+        datatype = getattr(data, "datatype", None)
         if datatype:
             json_dict[node.name]["x-datatype"] = datatype
-        if node.data.deprecation:
-            json_dict[node.name]["x-deprecation"] = node.data.deprecation
+        if data.deprecation:
+            json_dict[node.name]["x-deprecation"] = data.deprecation
 
         # in case of unit or aggregate, the attribute will be missing
-        unit = getattr(node.data, "unit", None)
+        unit = getattr(data, "unit", None)
         if unit:
             json_dict[node.name]["x-unit"] = unit
 
-        aggregate = getattr(node.data, "aggregate", None)
+        aggregate = getattr(data, "aggregate", None)
         if aggregate:
             json_dict[node.name]["x-aggregate"] = aggregate
             if aggregate:
                 json_dict[node.name]["type"] = "object"
 
-        if node.data.comment:
-            json_dict[node.name]["x-comment"] = node.data.comment
+        if data.comment:
+            json_dict[node.name]["x-comment"] = data.comment
 
         if print_uuid:
             json_dict[node.name]["x-uuid"] = node.uuid
 
-    for field in node.data.get_extra_attributes():
-        json_dict[node.name][field] = getattr(node.data, field)
+    for field in data.get_extra_attributes():
+        json_dict[node.name][field] = getattr(data, field)
 
     # Generate child nodes
-    if isinstance(node.data, VSSDataBranch) or isinstance(node.data, VSSDataStruct):
+    if isinstance(data, VSSDataBranch) or isinstance(node.data, VSSDataStruct):
         if no_additional_properties:
             json_dict[node.name]["additionalProperties"] = False
         json_dict[node.name]["properties"] = {}

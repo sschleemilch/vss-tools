@@ -40,7 +40,7 @@ def intToHexChar(hexInt):
 
 def export_node(cdll: ctypes.CDLL, node: VSSNode, generate_uuid, out_file: str):
     uuid = "" if node.uuid is None else node.uuid
-    data = node.data
+    data = node.get_vss_data()
     cdll.createBinaryCnode(
         out_file.encode(),
         node.name.encode(),

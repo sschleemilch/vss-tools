@@ -9,8 +9,8 @@
 from vss_tools import log
 import sys
 from typing import Optional
+from anytree import PreOrderIter
 
-from anytree import PreOrderIter  # type: ignore
 
 from vss_tools.vspec.tree import VSSNode
 from vss_tools.vspec.utils.idgen_utils import fnv1_32_wrapper
@@ -28,8 +28,9 @@ def validate_static_uids(signals_dict: dict, validation_tree: VSSNode, strict: b
     def check_description(k: str, v: dict, match_tuple: tuple):
         validation_node: VSSNode = validation_tree_nodes[match_tuple[1]]
 
+        data = validation_node.get_vss_data()
         try:
-            assert v["description"] == validation_node.data.description
+            assert v["description"] == data.description
 
         except AssertionError:
             log.warning(
@@ -37,7 +38,7 @@ def validate_static_uids(signals_dict: dict, validation_tree: VSSNode, strict: b
                 f"DESCRIPTION MISMATCH: The description of {
                     k} has changed from "
                 f"\n\t   Validation: '{
-                    validation_node.data.description}' to \n\t   Current "
+                    data.description}' to \n\t   Current "
                 f"vspec: '{v['description']}'"
             )
 

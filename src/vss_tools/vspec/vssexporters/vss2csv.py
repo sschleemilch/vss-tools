@@ -48,7 +48,7 @@ def add_rows(
 ) -> None:
     node: VSSNode
     for node in PreOrderIter(root):
-        data = node.data
+        data = node.get_vss_data()
         row = [
             node.get_fqn(),
             data.type.value,

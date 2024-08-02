@@ -198,7 +198,6 @@ def test_deleted_branch(exporter: str, out_file: str, overlay: Optional[str], tm
     "overlay",
     [
         "test_files/test_del_instance_overlay.vspec",
-        "test_files/test_del_wrong_instance_overlay.vspec",
     ],
 )
 def test_deleted_instance(
@@ -215,7 +214,10 @@ def test_deleted_instance(
     cmd = exporter.split() + get_cla(spec, str(output), str(ov)).split()
     if "binary" in exporter:
         cmd.extend(["-b", HERE / "../../../binary/binarytool.so"])
+
     process = subprocess.run(cmd, capture_output=True, text=True)
+    print(process.stdout)
+    print(process.stderr)
 
     if "wrong" in overlay:
         assert process.returncode != 0

@@ -5,10 +5,10 @@
 # https://www.mozilla.org/en-US/MPL/2.0/
 #
 # SPDX-License-Identifier: MPL-2.0
-from typing import Any, Callable
+from typing import Any, Callable, Set
 from vss_tools import log
 
-dynamic_datatypes = set()
+dynamic_datatypes: Set[str] = set()
 dynamic_quantities: list[str] = []
 dynamic_units: dict[str, list] = {}
 

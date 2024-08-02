@@ -16,14 +16,23 @@ from copy import deepcopy
 from vss_tools import log
 from vss_tools.vspec.vspec import deep_update
 from vss_tools.vspec.model import (
+    VSSData,
     VSSDataDatatype,
     VSSDataStruct,
-    get_vss_data,
+    VSSRaw,
+    get_vss_raw,
     VSSDataBranch,
+    resolve_vss_raw,
 )
+from pydantic import ValidationError
 from vss_tools.vspec.datatypes import Datatypes, dynamic_datatypes
+from rich.pretty import pretty_repr
 
 SEPARATOR = "."
+
+
+class NotMergeableException(Exception):
+    pass
 
 
 class NoRootsException(Exception):
@@ -38,6 +47,20 @@ class InvalidExpansionEntryException(Exception):
     pass
 
 
+class NoVSSDataException(Exception):
+    pass
+
+
+class RawNodeResolveException(Exception):
+    def __init__(self, fqn: str | None, ve: ValidationError):
+        self.fqn = fqn
+        self.ve = ve
+
+    def __str__(self) -> str:
+        errors = self.ve.errors(include_url=False)
+        return f"'{self.fqn}' has {len(errors)} model errors:\n{pretty_repr(errors)}"
+
+
 class VSSNode(Node):  # type: ignore[misc]
     separator = SEPARATOR
 
@@ -45,7 +68,7 @@ class VSSNode(Node):  # type: ignore[misc]
         self, name: str, fqn: str | None, data: dict[str, Any], **kwargs: Any
     ) -> None:
         super().__init__(name, **kwargs)
-        self.data = get_vss_data(data, fqn)
+        self.data = get_vss_raw(data, fqn)
         self.uuid: str | None = None
 
     def _post_attach(self, parent: VSSNode):
@@ -59,8 +82,48 @@ class VSSNode(Node):  # type: ignore[misc]
         log.debug(f"'{self.get_fqn()}', detached from parent='{
                   parent.get_fqn()}'")
 
+    def get_vss_data(self) -> VSSData:
+        if not isinstance(self.data, VSSData):
+            raise NoVSSDataException(f"'{self.get_fqn()}' data is not VSSData")
+        else:
+            return self.data
+
     def get_fqn(self, sep: str = SEPARATOR) -> str:
         return sep.join([n.name for n in self.path])
+
+    def resolve_vss_nodes(self) -> None:
+        vss_raw_nodes = findall(
+            self, filter_=lambda node: isinstance(node.data, VSSRaw)
+        )
+        for node in vss_raw_nodes:
+            try:
+                node.data = resolve_vss_raw(node.data)
+            except ValidationError as e:
+                raise RawNodeResolveException(node.get_fqn(), e)
+
+    def get_child(self, fqn: str) -> VSSNode | None:
+        for child in self.children:
+            if child.get_fqn() == fqn:
+                return child
+        return None
+
+    def merge(self, other: VSSNode) -> None:
+        if self.get_fqn() != other.get_fqn():
+            raise NotMergeableException(f"{self.get_fqn()} != {other.get_fqn()}")
+
+        self_data = self.data.as_dict(exclude_fields=["fqn"])
+        other_data = other.data.as_dict(exclude_fields=["fqn"])
+
+        deep_update(self_data, other_data)
+        self.data = get_vss_raw(self_data, self.get_fqn())
+
+        child: VSSNode
+        for child in other.children:
+            match = self.get_child(child.get_fqn())
+            if match:
+                match.merge(child)
+            else:
+                child.parent = self
 
     def add_uuids(self) -> None:
         VSS_NAMESPACE = "vehicle_signal_specification"
@@ -98,7 +161,7 @@ class VSSNode(Node):  # type: ignore[misc]
             auto_node = VSSNode(
                 get_name(target_fqn),
                 target_fqn,
-                {"type": "branch", "description": "Auto generated"},
+                {"type": "branch"},
             )
             node.parent = auto_node
             return self.connect(target_fqn, auto_node)
@@ -106,62 +169,65 @@ class VSSNode(Node):  # type: ignore[misc]
     def expand_instances(self) -> None:
         instance_nodes = self.get_instance_nodes()
         instance_node: VSSNode
-        for instance_node in instance_nodes:
-            # Copy the reference node for creating instances
-            instance_node_copy = deepcopy(instance_node)
+        iterations = 0
+        while instance_nodes:
+            iterations += 1
+            for instance_node in instance_nodes:
+                # Copy the reference node for creating instances
+                instance_node_copy = deepcopy(instance_node)
 
-            # Remove children from copy that should not be instantiatet
-            for child in instance_node_copy.children:
-                if not child.data.instantiate:
-                    child.parent = None
+                # Remove children from copy that should not be instantiatet
+                for child in instance_node_copy.children:
+                    if not getattr(child.data, "instantiate", True):
+                        child.parent = None
 
-            # Remove children from instance node that need to be put on created instances instead
-            for child in instance_node.children:
-                if child.data.instantiate:
-                    child.parent = None
+                # Remove children from instance node that need to be put on created instances instead
+                for child in instance_node.children:
+                    if getattr(child.data, "instantiate", True):
+                        child.parent = None
 
-            # Roots to attach generated nodes
-            # Initialized with the instance node itself
-            roots = [instance_node]
+                # Roots to attach generated nodes
+                # Initialized with the instance node itself
+                roots = [instance_node]
 
-            # We want to keep track of generated nodes
-            # in order to append common original children
-            # in the end
-            generated_instance_nodes = []
-            # On every iteration, we get back new nodes to attach new instances to (roots)
-            # as well as the nodes that have been generated
-            for instance in instance_node.data.instances:  # type: ignore
-                roots, generated = expand_instance(roots, instance_node_copy, instance)
-                generated_instance_nodes.extend(generated)
+                # We want to keep track of generated nodes
+                # in order to append common original children
+                # in the end
+                generated_instance_nodes = []
+                # On every iteration, we get back new nodes to attach new instances to (roots)
+                # as well as the nodes that have been generated
+                for instance in instance_node.data.instances:  # type: ignore
+                    roots, generated = expand_instance(
+                        roots, instance_node_copy, instance
+                    )
+                    generated_instance_nodes.extend(generated)
 
-            # Since we do not want to append original children
-            # to intermediate generated nodes, we filter for the leafs
-            generated_instance_leaf_nodes = []
-            for node in generated_instance_nodes:
-                if node.is_leaf:
-                    generated_instance_leaf_nodes.append(node)
+                # Since we do not want to append original children
+                # to intermediate generated nodes, we filter for the leafs
+                generated_instance_leaf_nodes = []
+                for node in generated_instance_nodes:
+                    if node.is_leaf:
+                        generated_instance_leaf_nodes.append(node)
 
-            # Appending all original children at the right place
-            # Possibly overwriting content if wished
-            add_expanded_instance_children(
-                generated_instance_leaf_nodes, instance_node, instance_node_copy
-            )
+                # Appending all original children at the right place
+                # Possibly overwriting content if wished
+                add_expanded_instance_children(
+                    generated_instance_leaf_nodes, instance_node, instance_node_copy
+                )
 
-            instance_node.data.instances = []  # type: ignore
+                instance_node.data.instances = []  # type: ignore
+            instance_nodes = self.get_instance_nodes()
+        log.info(f"Instance expansion, iterations={iterations}")
 
-    def remove_delete_nodes(self) -> None:
+    def delete_nodes(self, nodes: tuple[VSSNode]) -> None:
         size_before = self.size
-        delete_nodes = findall(
-            self,
-            filter_=lambda node: node.data.delete,
-        )
-        for node in delete_nodes:
+        for node in nodes:
             log.debug(f"Deleting node: {node}")
             node.parent = None
         size_after = self.size
-        if delete_nodes:
+        if nodes:
             log.info(
-                f"Nodes deleted, marked={len(delete_nodes)}, overall={
+                f"Nodes deleted, given={len(nodes)}, overall={
                     size_before - size_after}"
             )
 
@@ -233,35 +299,31 @@ def get_root_with_name(roots: list[VSSNode], name: str) -> VSSNode | None:
 def add_expanded_instance_children(
     roots: list[VSSNode], instance_root: VSSNode, instance_copy: VSSNode
 ):
-    change = []
-    add = tuple()
+    add = []
     child: VSSNode
     for child in instance_copy.children:
-        found = False
-        for node in PreOrderIter(instance_root):
-            if node.get_fqn() == child.get_fqn():
-                change.append([node, child])
-                found = True
-        if not found:
-            add += (child,)
+        match = instance_root.get_child(child.get_fqn())
+        if not match:
+            add.append(child)
 
-    root: VSSNode
     for root in roots:
         for a in add:
             c = deepcopy(a)
             c.parent = root
 
+    change = []
+    for child in instance_copy.children:
+        match = instance_root.get_child(child.get_fqn())
+        if match:
+            change.append([match, child])
+
     for nodes in change:
-        src = nodes[0]
-        src_data = src.data.as_dict(exclude_fields=["fqn"])
-        target = nodes[1]
-        target_data = target.data.as_dict(exclude_fields=["fqn"])
+        target = nodes[0]
+        src = nodes[1]
         # We found a place for the node to be changed
         # Exclude it from future processing
-        target.parent = None
-        deep_update(src_data, target_data)
-        src.data = get_vss_data(src_data, src.get_fqn())
-        src.children += target.children
+        target.merge(src)
+        src.parent = None
 
 
 def expand_instance(

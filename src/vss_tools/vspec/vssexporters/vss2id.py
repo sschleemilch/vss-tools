@@ -45,15 +45,16 @@ def generate_split_id(
         name = fka[0] if isinstance(fka, list) else fka
     else:
         name = node.get_fqn()
-    datatype = getattr_nn(node.data, "datatype", "")
-    unit = getattr_nn(node.data, "unit", "")
-    allowed = getattr_nn(node.data, "allowed", "")
-    min = getattr_nn(node.data, "min", "")
-    max = getattr_nn(node.data, "max", "")
+    data = node.get_vss_data()
+    datatype = getattr_nn(data, "datatype", "")
+    unit = getattr_nn(data, "unit", "")
+    allowed = getattr_nn(data, "allowed", "")
+    min = getattr_nn(data, "min", "")
+    max = getattr_nn(data, "max", "")
     identifier = get_node_identifier_bytes(
         name,
         datatype,
-        node.data.type.value,
+        data.type.value,
         unit,
         allowed,
         min,
@@ -78,12 +79,13 @@ def export_node(
     """
 
     node_id: str
-    if node.data.constUID:
+    node_data = node.get_vss_data()
+    if node_data.constUID:
         log.info(
             f"Using const ID for {node.get_fqn()}. If you didn't mean "
             "to do that you can remove it in your vspec / overlay."
         )
-        node_id = node.data.constUID
+        node_id = node_data.constUID
     else:
         node_id, id_counter = generate_split_id(node, id_counter, strict_mode)
         node_id = f"0x{node_id}"
@@ -104,28 +106,28 @@ def export_node(
     node_path = node.get_fqn()
 
     data[node_path] = {"staticUID": f"{node_id}"}
-    data[node_path]["description"] = node.data.description
-    data[node_path]["type"] = str(node.data.type.value)
-    if hasattr(node.data, "unit"):
-        data[node_path]["unit"] = getattr(node.data, "unit")
-    if hasattr(node.data, "datatype"):
-        data[node_path]["datatype"] = getattr(node.data, "datatype")
-    if hasattr(node.data, "allowed"):
-        data[node_path]["allowed"] = getattr(node.data, "allowed")
+    data[node_path]["description"] = node_data.description
+    data[node_path]["type"] = str(node_data.type.value)
+    if hasattr(node_data, "unit"):
+        data[node_path]["unit"] = getattr(node_data, "unit")
+    if hasattr(node_data, "datatype"):
+        data[node_path]["datatype"] = getattr(node_data, "datatype")
+    if hasattr(node_data, "allowed"):
+        data[node_path]["allowed"] = getattr(node_data, "allowed")
 
-    min = getattr(node.data, "min", None)
+    min = getattr(node_data, "min", None)
     if min is not None:
         data[node_path]["min"] = min
-    max = getattr(node.data, "max", None)
+    max = getattr(node_data, "max", None)
     if max is not None:
         data[node_path]["max"] = max
 
-    fka = getattr(node.data, "fka", None)
+    fka = getattr(node_data, "fka", None)
     if fka:
         data[node_path]["fka"] = fka
 
-    if node.data.deprecation:
-        data[node_path]["deprecation"] = node.data.deprecation
+    if node_data.deprecation:
+        data[node_path]["deprecation"] = node_data.deprecation
 
     for child in node.children:
         id_counter, id_counter = export_node(data, child, id_counter, strict_mode)

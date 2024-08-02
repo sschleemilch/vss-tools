@@ -326,17 +326,18 @@ def export_node(
                 + '";'
             )
 
+        data = node.get_vss_data()
         idl_file_buffer.append(
             ("" if generate_all_idl_features else "//")
             + 'const string type ="'
-            + str(node.data.type.value)
+            + str(data.type.value)
             + '";'
         )
 
         idl_file_buffer.append(
             ("" if generate_all_idl_features else "//")
             + 'const string description="'
-            + node.data.description
+            + data.description
             + '";'
         )
         idl_file_buffer.append("};")
