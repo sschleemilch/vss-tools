@@ -36,3 +36,6 @@ vspec = "vss_tools.vspec.vspec_cli:cli"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.mypy]
+disable_error_code = "import-untyped"
