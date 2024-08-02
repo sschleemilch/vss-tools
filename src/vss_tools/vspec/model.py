@@ -6,7 +6,8 @@
 #
 # SPDX-License-Identifier: MPL-2.0
 from enum import Enum
-from typing import Any, Self
+from typing import Any
+from typing_extensions import Self
 import re
 
 from pydantic import (

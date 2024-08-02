@@ -53,8 +53,7 @@ def load_quantities_and_units(
             quantities = (default_quantity,)
         else:
             log.warning(
-                f"No 'quantity' files defined. Default not existing: {
-                    default_quantity.absolute()}"
+                f"No 'quantity' files defined. Default not existing: {default_quantity.absolute()}"
             )
     if not units:
         default_unit = vspec_root / "units.yaml"
@@ -62,8 +61,7 @@ def load_quantities_and_units(
             units = (default_unit,)
         else:
             log.warning(
-                f"No 'unit' files defined. Default not existing: {
-                    default_unit.absolute()}"
+                f"No 'unit' files defined. Default not existing: {default_unit.absolute()}"
             )
 
     quantity_data = load_quantities(list(quantities))
@@ -95,10 +93,7 @@ def check_extra_attribute_violations(
         log.info(f"User defined extra attributes: {extended_attributes}")
     extra_attributes = root.get_extra_attributes(extended_attributes)
     for attribute in extra_attributes:
-        log.warning(
-            f"Unknown extra attribute: '{
-                attribute[0]}':'{attribute[1]}'"
-        )
+        log.warning(f"Unknown extra attribute: '{attribute[0]}':'{attribute[1]}'")
     if strict or "unknown-attribute" in aborts:
         if extra_attributes:
             raise ExtraAttributesException(
@@ -175,8 +170,7 @@ def get_invalid_branch_nodes(root: VSSNode) -> list[VSSNode]:
         if branch_node.parent is None:
             continue
         if not isinstance(branch_node.parent.data, VSSDataBranch):
-            log.warning(f"Parent of branch not a branch: {
-                        branch_node.get_fqn()}")
+            log.warning(f"Parent of branch not a branch: {branch_node.get_fqn()}")
             invalid_nodes.append(branch_node)
     return invalid_nodes
 
@@ -220,8 +214,7 @@ def get_trees(
     invalid_branch_nodes = get_invalid_branch_nodes(root)
     if invalid_branch_nodes:
         log.critical(
-            f"Invalid branch nodes: {[n.get_fqn()
-                                      for n in invalid_branch_nodes]}"
+            f"Invalid branch nodes: {[n.get_fqn() for n in invalid_branch_nodes]}"
         )
         exit(1)
 

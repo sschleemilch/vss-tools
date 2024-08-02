@@ -35,10 +35,8 @@ def validate_static_uids(signals_dict: dict, validation_tree: VSSNode, strict: b
         except AssertionError:
             log.warning(
                 "[Validation] "
-                f"DESCRIPTION MISMATCH: The description of {
-                    k} has changed from "
-                f"\n\t   Validation: '{
-                    data.description}' to \n\t   Current "
+                f"DESCRIPTION MISMATCH: The description of {k} has changed from "
+                f"\n\t   Validation: '{data.description}' to \n\t   Current "
                 f"vspec: '{v['description']}'"
             )
 
@@ -59,10 +57,8 @@ def validate_static_uids(signals_dict: dict, validation_tree: VSSNode, strict: b
                 for i, validation_node in enumerate(validation_tree_nodes):
                     if old_static_uid == validation_node.data.staticUID:
                         log.warning(
-                            f"[Validation] SEMANTIC NAME CHANGE or PATH CHANGE for '{
-                                k}', "
-                            f"it used to be '{
-                                validation_node.get_fqn()}'."
+                            f"[Validation] SEMANTIC NAME CHANGE or PATH CHANGE for '{k}', "
+                            f"it used to be '{validation_node.get_fqn()}'."
                         )
                         semantic_match = i
             return semantic_match
@@ -81,8 +77,7 @@ def validate_static_uids(signals_dict: dict, validation_tree: VSSNode, strict: b
                 log.warning(
                     f"[Validation] DEPRECATION MSG CHANGE: Deprecation message "
                     f"for '{k}' was "
-                    f"'{validation_tree_nodes[match_tuple[1]
-                                              ].data.deprecation}' "
+                    f"'{validation_tree_nodes[match_tuple[1]].data.deprecation}' "
                     f"in validation but now is '{v['deprecation']}'."
                 )
 
@@ -132,8 +127,7 @@ def validate_static_uids(signals_dict: dict, validation_tree: VSSNode, strict: b
                     else:
                         log.warning(
                             f"[Validation] ADDED ATTRIBUTE: "
-                            f"The node '{
-                                key}' was added since the last validation."
+                            f"The node '{key}' was added since the last validation."
                         )
                 else:
                     validation_tree_nodes.pop(semantic_match)

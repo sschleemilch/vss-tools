@@ -73,14 +73,12 @@ class VSSNode(Node):  # type: ignore[misc]
 
     def _post_attach(self, parent: VSSNode):
         log.debug(
-            f"Got attached to parent='{parent.get_fqn()}', new fqn='{
-                self.get_fqn()}'"
+            f"Got attached to parent='{parent.get_fqn()}', new fqn='{self.get_fqn()}'"
         )
         self.data.fqn = self.get_fqn(SEPARATOR)
 
     def _post_detach(self, parent: VSSNode):
-        log.debug(f"'{self.get_fqn()}', detached from parent='{
-                  parent.get_fqn()}'")
+        log.debug(f"'{self.get_fqn()}', detached from parent='{parent.get_fqn()}'")
 
     def get_vss_data(self) -> VSSData:
         if not isinstance(self.data, VSSData):
@@ -227,8 +225,7 @@ class VSSNode(Node):  # type: ignore[misc]
         size_after = self.size
         if nodes:
             log.info(
-                f"Nodes deleted, given={len(nodes)}, overall={
-                    size_before - size_after}"
+                f"Nodes deleted, given={len(nodes)}, overall={size_before - size_after}"
             )
 
     def get_naming_violations(self) -> list[list[str]]:
@@ -421,8 +418,7 @@ def build_tree(
     if orphans:
         log.warning(f"Orphans: {len(orphans)}")
 
-    log.info(f"Tree, root='{root.name}', size={
-        root.size}, height={root.height}")
+    log.info(f"Tree, root='{root.name}', size={root.size}, height={root.height}")
     return root, orphans
 
 

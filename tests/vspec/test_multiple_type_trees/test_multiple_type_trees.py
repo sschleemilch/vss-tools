@@ -23,8 +23,8 @@ def test_error(tmp_path):
     vt1 = HERE / "struct1.vspec"
     vt2 = HERE / "struct2.vspec"
     spec = HERE / "test.vspec"
-    cmd = f"vspec export csv --types {vt1} --types {vt2} -u {
-        TEST_UNITS} -q {TEST_QUANT} --vspec {spec} --output {output}"
+    cmd = f"vspec export csv --types {vt1} --types {vt2}"
+    cmd += f" -u {TEST_UNITS} -q {TEST_QUANT} --vspec {spec} --output {output}"
     process = subprocess.run(cmd.split(), capture_output=True, text=True)
     assert process.returncode != 0
     assert "MultipleTypeTreesException" in process.stderr

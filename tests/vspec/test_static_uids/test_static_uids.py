@@ -38,8 +38,7 @@ def get_cla_test(test_file: Path, tmp_path: Path, overlay: str | None = None):
         args += f" -l {overlay}"
     validation = HERE / "validation_vspecs/validation.vspec"
     units = HERE / "test_vspecs/units.yaml"
-    args += f" --output {output} --validate-static-uid {
-        validation} -u {units} -q {TEST_QUANT}"
+    args += f" --output {output} --validate-static-uid {validation} -u {units} -q {TEST_QUANT}"
     return args
 
 
@@ -209,8 +208,8 @@ def test_semantic(caplog: pytest.LogCaptureFixture, validation_file: str, tmp_pa
     spec = HERE / "test_vspecs/test.vspec"
     output = tmp_path / "out.vspec"
     validation = HERE / validation_file
-    args = f"vspec export id --vspec {spec} --output {
-        output} --validate-static-uid {validation} -q {TEST_QUANT}"
+    args = f"vspec export id --vspec {spec} --output {output}"
+    args += f" --validate-static-uid {validation} -q {TEST_QUANT}"
     process = subprocess.run(args.split(), capture_output=True, text=True)
     assert "SEMANTIC NAME CHANGE" in process.stdout
 

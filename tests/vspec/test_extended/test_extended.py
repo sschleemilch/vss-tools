@@ -47,8 +47,8 @@ def test_extended_ok(
     tmp_path,
 ):
     output = tmp_path / "out.json"
-    cmd = f"vspec export json --pretty -u {TEST_UNITS} -q {
-        TEST_QUANT} {extended_args} -s {TEST_FILE} -o {output}"
+    cmd = f"vspec export json --pretty -u {TEST_UNITS}"
+    cmd += f" -q {TEST_QUANT} {extended_args} -s {TEST_FILE} -o {output}"
 
     # Make sure there is no line break that affects compare
     os.environ["COLUMNS"] = "120"
@@ -79,8 +79,8 @@ def test_extended_ok(
 )
 def test_extended_error(extended_args: str, tmp_path):
     output = tmp_path / "out.json"
-    cmd = f"vspec export json --pretty -u {TEST_UNITS} -q {
-        TEST_QUANT} {extended_args} -s {TEST_FILE} -o {output}"
+    cmd = f"vspec export json --pretty -u {TEST_UNITS}"
+    cmd += f" -q {TEST_QUANT} {extended_args} -s {TEST_FILE} -o {output}"
 
     # Make sure there is no line break that affects compare
     os.environ["COLUMNS"] = "120"

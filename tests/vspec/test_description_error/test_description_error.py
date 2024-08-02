@@ -30,8 +30,7 @@ def test_description_error(
 ):
     output = tmp_path / "out.json"
     log = tmp_path / "out.log"
-    cmd = f"vspec --log-file {log} export json --pretty -u {
-        TEST_UNITS} -q {TEST_QUANT}"
+    cmd = f"vspec --log-file {log} export json --pretty -u {TEST_UNITS} -q {TEST_QUANT}"
     if type_file:
         cmd += f" --types {HERE / type_file}"
     if type_out_file:

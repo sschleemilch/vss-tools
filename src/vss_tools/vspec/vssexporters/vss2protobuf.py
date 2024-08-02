@@ -148,8 +148,7 @@ def print_messages(
             if "staticUID" not in node.data.get_extra_attributes():
                 log.fatal(
                     (
-                        f"Aborting because {
-                            node.get_fqn()} does not have the staticUID attribute. "
+                        f"Aborting because {node.get_fqn()} does not have the staticUID attribute. "
                         f"When using the option --static-uid each node must have the attribute staticUID."
                     )
                 )
@@ -162,10 +161,8 @@ def print_messages(
             if fieldNumber in usedKeys:
                 log.fatal(
                     (
-                        f"Aborting, due to collision for fieldNumber {
-                            fieldNumber}. "
-                        f"It is used by {node.get_fqn()} and {
-                            usedKeys[fieldNumber]}. "
+                        f"Aborting, due to collision for fieldNumber {fieldNumber}. "
+                        f"It is used by {node.get_fqn()} and {usedKeys[fieldNumber]}. "
                         "Consider changing the signals to alter the staticUID."
                     )
                 )
@@ -234,8 +231,7 @@ def cli(
         if not types_out_dir:
             types_out_dir = Path.cwd()
             log.warning(
-                f"No output directory given. Writing to: {
-                    types_out_dir.absolute()}"
+                f"No output directory given. Writing to: {types_out_dir.absolute()}"
             )
         traverse_data_type_tree(datatype_tree, static_uid, add_optional, types_out_dir)
 

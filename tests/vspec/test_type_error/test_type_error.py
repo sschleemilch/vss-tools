@@ -69,8 +69,8 @@ def type_case_sensitive(vspec_file: str, tmp_path):
 def test_scope_error(vspec_file: str, tmp_path):
     vspec_file = HERE / vspec_file
     out = tmp_path / "out.json"
-    cmd = f"vspec export json --pretty -u {TEST_UNITS} -q {
-        TEST_QUANT} --vspec {vspec_file} --output {out}"
+    cmd = f"vspec export json --pretty -u {TEST_UNITS}"
+    cmd += f" -q {TEST_QUANT} --vspec {vspec_file} --output {out}"
     process = subprocess.run(cmd.split(), capture_output=True, text=True)
     assert process.returncode != 0
     assert "Invalid branch nodes: ['A.UInt8.CCC']" in process.stdout
