@@ -73,4 +73,5 @@ def test_scope_error(vspec_file: str, tmp_path):
     cmd += f" -q {TEST_QUANT} --vspec {vspec_file} --output {out}"
     process = subprocess.run(cmd.split(), capture_output=True, text=True)
     assert process.returncode != 0
-    assert "Invalid branch nodes: ['A.UInt8.CCC']" in process.stdout
+    assert "Invalid nodes=1" in process.stdout
+    assert "A.UInt8.CCC" in process.stdout

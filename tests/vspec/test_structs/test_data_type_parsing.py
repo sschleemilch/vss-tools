@@ -235,7 +235,7 @@ def test_data_types_invalid_reference_in_data_type_tree(
     [
         (
             "VehicleDataTypesInvalidStructWithOrphanProperties.vspec",
-            "Property orphans=1",
+            "invalid parent: 'VSSDataBranch'",
         )
     ],
 )

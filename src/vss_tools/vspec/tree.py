@@ -10,7 +10,7 @@ import re
 from typing import Any
 import uuid
 
-from anytree import Node, PreOrderIter, findall
+from anytree import Node, PreOrderIter, find, findall
 from copy import deepcopy
 
 from vss_tools import log
@@ -103,7 +103,7 @@ class VSSNode(Node):  # type: ignore[misc]
     def get_fqn(self, sep: str = SEPARATOR) -> str:
         return sep.join([n.name for n in self.path])
 
-    def resolve_vss_nodes(self) -> None:
+    def resolve(self) -> None:
         """
         Resolves raw nodes into "higher" nodes
         """
@@ -160,9 +160,9 @@ class VSSNode(Node):  # type: ignore[misc]
         )
 
     def get_node_with_fqn(self, fqn: str, sep: str = SEPARATOR) -> VSSNode | None:
-        results = findall(self, filter_=lambda n: n.get_fqn(sep) == fqn)
-        if results:
-            return results[0]
+        result = find(self, filter_=lambda n: n.get_fqn(sep) == fqn)
+        if result:
+            return result
         return None
 
     def connect(self, fqn: str, node: VSSNode) -> VSSNode | None:

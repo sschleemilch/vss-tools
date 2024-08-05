@@ -30,7 +30,7 @@ from vss_tools.vspec.datatypes import (
 
 # TODO: Why do we exclude "arraysize"?
 # Added it because of "test_data_type_parsing.py"
-EXPORT_EXCLUDE_ATTRIBUTES = ["delete", "instantiate", "fqn", "arraysize"]
+EXPORT_EXCLUDE_ATTRIBUTES = ["delete", "instantiate", "fqn", "arraysize", "aggregate"]
 
 
 class ModelException(Exception):
@@ -105,6 +105,7 @@ class VSSData(VSSRaw):
 
 class VSSDataBranch(VSSData):
     instances: Any = None
+    aggregate: bool = False
 
     @field_validator("instances")
     @classmethod

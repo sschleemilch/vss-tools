@@ -24,7 +24,6 @@ def run_exporter(exporter, argument, tmp_path):
     process = subprocess.run(cmd.split(), capture_output=True, text=True)
     assert process.returncode == 0
     expected = HERE / f"expected.{exporter}"
-    print(cmd)
     assert filecmp.cmp(output, expected)
 
     # Check if warning given

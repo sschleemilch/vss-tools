@@ -101,19 +101,6 @@ def check_extra_attribute_violations(
             )
 
 
-def get_property_orphans(root: VSSNode | None) -> list[VSSNode]:
-    orphans: list[VSSNode] = []
-    if root is None:
-        return orphans
-    pnode: VSSNode
-    for pnode in findall(root, filter_=lambda n: isinstance(n.data, VSSDataProperty)):
-        if pnode.parent is None:
-            orphans.append(pnode)
-        elif not isinstance(pnode.parent.data, VSSDataStruct):
-            orphans.append(pnode)
-    return orphans
-
-
 def get_types_root(
     types: tuple[Path, ...], include_dirs: tuple[Path, ...]
 ) -> VSSNode | None:
@@ -147,32 +134,40 @@ def get_types_root(
 
     if types_root:
         try:
-            types_root.resolve_vss_nodes()
+            types_root.resolve()
         except RawNodeResolveException as e:
             log.critical(e)
             exit(1)
 
-    property_orphans = get_property_orphans(types_root)
-    if property_orphans:
-        log.error(f"Property orphans={len(property_orphans)}")
-        log.debug(property_orphans)
-        raise PropertyOrphansException()
-
     return types_root
 
 
-def get_invalid_branch_nodes(root: VSSNode) -> list[VSSNode]:
+def get_invalid_node_msgs(root: VSSNode) -> list[str]:
     invalid_nodes = []
-    branch_node: VSSNode
-    for branch_node in findall(
-        root, filter_=lambda n: isinstance(n.data, VSSDataBranch)
-    ):
-        if branch_node.parent is None:
+    for node in PreOrderIter(root):
+        ok = True
+        if node.parent is None:
             continue
-        if not isinstance(branch_node.parent.data, VSSDataBranch):
-            log.warning(f"Parent of branch not a branch: {branch_node.get_fqn()}")
-            invalid_nodes.append(branch_node)
+        if isinstance(node.data, VSSDataProperty):
+            if not isinstance(node.parent.data, VSSDataStruct):
+                ok = False
+        else:
+            if not isinstance(node.parent.data, VSSDataBranch):
+                ok = False
+        if not ok:
+            entry = f"'{node.get_fqn()} ({node.data.__class__.__name__})',"
+            entry += f" invalid parent: '{node.parent.data.__class__.__name__}'"
+            invalid_nodes.append(entry)
     return invalid_nodes
+
+
+def validate_tree(root: VSSNode) -> None:
+    invalid_node_msgs = get_invalid_node_msgs(root)
+    if invalid_node_msgs:
+        log.critical(f"Invalid nodes={len(invalid_node_msgs)}")
+        for node in invalid_node_msgs:
+            log.critical(node)
+        exit(1)
 
 
 def get_trees(
@@ -204,21 +199,17 @@ def get_trees(
         root.add_uuids()
 
     try:
-        root.resolve_vss_nodes()
+        root.resolve()
     except RawNodeResolveException as e:
         log.critical(e)
         exit(1)
 
     root.delete_nodes(findall(root, filter_=lambda n: n.get_vss_data().delete))
 
-    invalid_branch_nodes = get_invalid_branch_nodes(root)
-    if invalid_branch_nodes:
-        log.critical(
-            f"Invalid branch nodes: {[n.get_fqn() for n in invalid_branch_nodes]}"
-        )
-        exit(1)
+    validate_tree(root)
 
     if types_root:
+        validate_tree(types_root)
         try:
             # TODO: Should type tree properties be compliant to name-style?
             # check_name_violations(types_root, strict, aborts)
