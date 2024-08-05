@@ -11,6 +11,24 @@ from vss_tools.vspec.main import get_trees
 import rich_click as click
 from pathlib import Path
 from anytree import RenderTree
+from vss_tools import log
+
+from vss_tools.vspec.tree import VSSNode
+
+
+def get_rendered_tree(tree: VSSNode, attributes: tuple[str]) -> str:
+    tree_content_lines = []
+    for pre, fill, node in RenderTree(tree):
+        tree_content_lines.append("%s%s" % (pre, node.name))
+        for attribute in attributes:
+            content = getattr(node.data, attribute, None)
+            if content is None:
+                continue
+            if isinstance(content, str):
+                tree_content_lines.append("%s%s='%s'" % (fill, attribute, content))
+            else:
+                tree_content_lines.append("%s%s=%s" % (fill, attribute, content))
+    return "\n".join(tree_content_lines)
 
 
 @click.command()
@@ -26,13 +44,7 @@ from anytree import RenderTree
 @clo.quantities_opt
 @clo.units_opt
 @clo.types_opt
-@click.option(
-    "--attr",
-    "-a",
-    help="Render tree by this attribute",
-    default="name",
-    show_default=True,
-)
+@click.option("--attr", "-a", help="Show VSSData attribute", multiple=True)
 def cli(
     vspec: Path,
     include_dirs: tuple[Path],
@@ -46,7 +58,7 @@ def cli(
     units: tuple[Path],
     types: tuple[Path],
     output: Path | None,
-    attr: str,
+    attr: tuple[str],
 ):
     """
     Export as YAML.
@@ -65,15 +77,13 @@ def cli(
         expand=expand,
     )
 
-    tree_content = RenderTree(tree).by_attr(attr)
-    datatype_tree_content = ""
+    rendered_tree = get_rendered_tree(tree, attr)
     if datatype_tree:
-        datatype_tree_content = RenderTree(datatype_tree).by_attr(attr)
+        rendered_tree += get_rendered_tree(datatype_tree, attr)
 
     if output:
+        log.info(f"Writing tree to: {output.absolute()}")
         with open(output, "w") as f:
-            f.write(tree_content)
-            f.write(datatype_tree_content)
+            f.write(rendered_tree)
     else:
-        print(tree_content)
-        print(datatype_tree_content)
+        log.info(rendered_tree)
