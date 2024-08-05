@@ -18,7 +18,7 @@ from vss_tools.vspec.model import (
     VSSDataStruct,
     VSSDataBranch,
 )
-from vss_tools.vspec.tree_utils import get_trees
+from vss_tools.vspec.main import get_trees
 from vss_tools.vspec.tree import VSSNode
 from pathlib import Path
 

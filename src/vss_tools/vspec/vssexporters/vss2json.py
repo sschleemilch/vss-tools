@@ -13,7 +13,7 @@ import json
 from typing import Any
 import rich_click as click
 import vss_tools.vspec.cli_options as clo
-from vss_tools.vspec.tree_utils import get_trees
+from vss_tools.vspec.main import get_trees
 from pathlib import Path
 from vss_tools import log
 

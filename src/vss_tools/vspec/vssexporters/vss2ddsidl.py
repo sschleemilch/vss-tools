@@ -16,7 +16,7 @@ import rich_click as click
 import vss_tools.vspec.cli_options as clo
 from vss_tools.vspec.model import VSSDataBranch, VSSDataStruct
 from vss_tools.vspec.tree import VSSNode
-from vss_tools.vspec.tree_utils import get_trees
+from vss_tools.vspec.main import get_trees
 from vss_tools.vspec.utils.misc import getattr_nn
 from pathlib import Path
 

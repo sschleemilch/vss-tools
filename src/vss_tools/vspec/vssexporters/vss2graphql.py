@@ -11,7 +11,7 @@ from vss_tools import log
 import vss_tools.vspec.cli_options as clo
 from vss_tools.vspec.model import VSSDataDatatype
 from vss_tools.vspec.tree import VSSNode
-from vss_tools.vspec.tree_utils import get_trees
+from vss_tools.vspec.main import get_trees
 from pathlib import Path
 from vss_tools.vspec.utils.misc import camel_back
 from typing import Dict

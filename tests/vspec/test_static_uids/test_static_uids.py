@@ -22,7 +22,7 @@ import yaml
 from vss_tools.vspec.utils.idgen_utils import get_all_keys_values
 from vss_tools.vspec.tree import VSSNode
 from vss_tools.vspec.datatypes import Datatypes
-from vss_tools.vspec.tree_utils import get_trees
+from vss_tools.vspec.main import get_trees
 
 from pathlib import Path
 

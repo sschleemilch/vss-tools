@@ -7,7 +7,7 @@
 # SPDX-License-Identifier: MPL-2.0
 
 import vss_tools.vspec.cli_options as clo
-from vss_tools.vspec.tree_utils import get_trees
+from vss_tools.vspec.main import get_trees
 import rich_click as click
 from pathlib import Path
 from anytree import RenderTree
