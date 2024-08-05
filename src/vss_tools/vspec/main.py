@@ -14,7 +14,7 @@ from vss_tools.vspec.model import (
     VSSDataProperty,
     VSSDataStruct,
 )
-from vss_tools.vspec.tree import VSSNode, build_tree, RawNodeResolveException
+from vss_tools.vspec.tree import VSSNode, build_tree, ModelValidationException
 from vss_tools.vspec.vspec import load_vspec
 from vss_tools.vspec.units_quantities import load_quantities, load_units
 from vss_tools.vspec.datatypes import (
@@ -141,7 +141,7 @@ def get_types_root(
     if types_root:
         try:
             types_root.resolve()
-        except RawNodeResolveException as e:
+        except ModelValidationException as e:
             log.critical(e)
             exit(1)
 
@@ -199,7 +199,11 @@ def get_trees(
     Loading vspec files, building and validating trees (types and normal).
     Returning a tuple of the root and the types tree
     """
-    load_quantities_and_units(quantities, units, vspec.parent)
+    try:
+        load_quantities_and_units(quantities, units, vspec.parent)
+    except ModelValidationException as e:
+        log.critical(e)
+        exit(1)
 
     types_root = get_types_root(types, include_dirs)
 
@@ -219,7 +223,7 @@ def get_trees(
 
     try:
         root.resolve()
-    except RawNodeResolveException as e:
+    except ModelValidationException as e:
         log.critical(e)
         exit(1)
 

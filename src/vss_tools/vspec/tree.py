@@ -23,10 +23,10 @@ from vss_tools.vspec.model import (
     get_vss_raw,
     VSSDataBranch,
     resolve_vss_raw,
+    ModelValidationException,
 )
 from pydantic import ValidationError
 from vss_tools.vspec.datatypes import Datatypes, dynamic_datatypes
-from rich.pretty import pretty_repr
 
 SEPARATOR = "."
 
@@ -49,21 +49,6 @@ class InvalidExpansionEntryException(Exception):
 
 class NoVSSDataException(Exception):
     pass
-
-
-class RawNodeResolveException(Exception):
-    """
-    Exception that pretty formats the Pydantic
-    ValidationError
-    """
-
-    def __init__(self, fqn: str | None, ve: ValidationError):
-        self.fqn = fqn
-        self.ve = ve
-
-    def __str__(self) -> str:
-        errors = self.ve.errors(include_url=False)
-        return f"'{self.fqn}' has {len(errors)} model errors:\n{pretty_repr(errors)}"
 
 
 class VSSNode(Node):  # type: ignore[misc]
@@ -114,7 +99,7 @@ class VSSNode(Node):  # type: ignore[misc]
             try:
                 node.data = resolve_vss_raw(node.data)
             except ValidationError as e:
-                raise RawNodeResolveException(node.get_fqn(), e)
+                raise ModelValidationException(node.get_fqn(), e)
 
     def get_child(self, fqn: str) -> VSSNode | None:
         for child in self.children:

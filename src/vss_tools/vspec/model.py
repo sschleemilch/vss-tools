@@ -8,6 +8,7 @@
 from enum import Enum
 from typing import Any
 from typing_extensions import Self
+from rich.pretty import pretty_repr
 import re
 
 from pydantic import (
@@ -35,6 +36,23 @@ EXPORT_EXCLUDE_ATTRIBUTES = ["delete", "instantiate", "fqn", "arraysize", "aggre
 
 class ModelException(Exception):
     pass
+
+
+class ModelValidationException(Exception):
+    """
+    Exception that pretty formats the Pydantic
+    ValidationError
+    """
+
+    def __init__(self, element: str | None, ve: ValidationError):
+        self.element = element
+        self.ve = ve
+
+    def __str__(self) -> str:
+        errors = self.ve.errors(include_url=False)
+        return (
+            f"'{self.element}' has {len(errors)} model error(s):\n{pretty_repr(errors)}"
+        )
 
 
 class NodeType(str, Enum):
@@ -224,7 +242,7 @@ class VSSDataDatatype(VSSData):
             for v in self.allowed:
                 assert Datatypes.is_datatype(
                     v, self.datatype
-                ), f"{v} is not of type '{self.datatype}'"
+                ), f"'{v}' is not of type '{self.datatype}'"
         return self
 
     @model_validator(mode="after")

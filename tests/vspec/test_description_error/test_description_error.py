@@ -42,4 +42,4 @@ def test_description_error(
     log_content = log.read_text()
     print(log_content)
     assert "'type': 'missing'" in log_content
-    assert "1 model errors:" in log_content
+    assert "1 model error(s):" in log_content

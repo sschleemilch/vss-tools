@@ -6,7 +6,7 @@
 #
 # SPDX-License-Identifier: MPL-2.0
 from pathlib import Path
-from vss_tools.vspec.model import VSSUnit, VSSQuantity
+from vss_tools.vspec.model import VSSUnit, VSSQuantity, ModelValidationException
 from pydantic import ValidationError
 import yaml
 from vss_tools import log
@@ -42,8 +42,7 @@ def load_units_or_quantities(
             try:
                 data[k] = class_type(**v)
             except ValidationError as e:
-                log.error(f"{k}: {e}")
-                raise e
+                raise ModelValidationException(k, e)
     return data
 
 
