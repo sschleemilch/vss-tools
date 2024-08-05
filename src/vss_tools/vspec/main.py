@@ -47,6 +47,10 @@ class PropertyOrphansException(Exception):
 def load_quantities_and_units(
     quantities: tuple[Path, ...], units: tuple[Path, ...], vspec_root: Path
 ) -> None:
+    """
+    Loading quantities and units.
+    Side effect: filling global 'dynamic_quantities' and 'dynamic_units' from 'datatypes'
+    """
     if not quantities:
         default_quantity = vspec_root / "quantities.yaml"
         if default_quantity.exists():
@@ -129,6 +133,8 @@ def get_types_root(
         log.info(f"Dynamic datatypes added={len(dynamic_datatypes)}")
         log.debug(dynamic_datatypes)
 
+    # Checking whether user defined root types e.g 'MyType'
+    # instead of 'Types.MyType'
     if not all(["." in t for t in dynamic_datatypes]):
         raise RootTypesException()
 
@@ -143,6 +149,12 @@ def get_types_root(
 
 
 def get_invalid_node_msgs(root: VSSNode) -> list[str]:
+    """
+    Validating whether tree nodes have correct parents
+    All nodes need 'branch' parents except 'properties'.
+    Properties need a 'struct' as a parent.
+    Returning error msgs
+    """
     invalid_nodes = []
     for node in PreOrderIter(root):
         ok = True
@@ -183,10 +195,16 @@ def get_trees(
     overlays: tuple[Path, ...] = tuple(),
     expand: bool = True,
 ) -> tuple[VSSNode, VSSNode | None]:
+    """
+    Loading vspec files, building and validating trees (types and normal).
+    Returning a tuple of the root and the types tree
+    """
     load_quantities_and_units(quantities, units, vspec.parent)
 
     types_root = get_types_root(types, include_dirs)
+
     vspec_data = load_vspec(include_dirs, [vspec] + list(overlays))
+
     root, orphans = build_tree(vspec_data.data, connect_orphans=True)
 
     if orphans:
@@ -195,6 +213,7 @@ def get_trees(
 
     if expand:
         root.expand_instances()
+
     if uuid:
         root.add_uuids()
 

@@ -255,6 +255,10 @@ class VSSNode(Node):  # type: ignore[misc]
         log.info(f"Instance expansion, iterations={iterations}")
 
     def delete_nodes(self, nodes: tuple[VSSNode]) -> None:
+        """
+        Deleting given nodes.
+        It is not checked whether nodes are reachable from self!
+        """
         size_before = self.size
         for node in nodes:
             log.debug(f"Deleting node: {node}")
