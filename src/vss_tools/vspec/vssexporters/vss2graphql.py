@@ -88,24 +88,26 @@ def get_schema_from_tree(root: VSSNode, additional_leaf_fields: list) -> str:
     return print_schema(GraphQLSchema(root_query))
 
 
-def to_gql_type(node: VSSNode, additional_leaf_fields: list) -> GraphQLObjectType:
+def to_gql_type(node: VSSNode, additional_leaf_fields: list):
     if isinstance(node.data, VSSDataDatatype):
         fields = leaf_fields(node, additional_leaf_fields)
+        return fields[camel_back(node.name)] 
     else:
         fields = branch_fields(node, additional_leaf_fields)
-    return GraphQLObjectType(
-        name=node.get_fqn("_"),
-        fields=fields,
-        description=node.get_vss_data().description,
-    )
+        return GraphQLObjectType(
+            name=node.get_fqn("_"),
+            fields=fields,
+            description=node.get_vss_data().description,
+        )
 
 
 def leaf_fields(node: VSSNode, additional_leaf_fields: list) -> Dict[str, GraphQLField]:
     field_dict = {}
     datatype = getattr(node.data, "datatype", None)
     if datatype is not None:
-        field_dict["value"] = field(node, "Value: ", GRAPHQL_TYPE_MAPPING[datatype])
-    field_dict["timestamp"] = field(node, "Timestamp: ")
+        # Create a GraphQLField with the scalar type and return it
+        field_dict[camel_back(node.name)] = field(node, type=GRAPHQL_TYPE_MAPPING[datatype])
+        
     if additional_leaf_fields:
         for additional_field in additional_leaf_fields:
             if len(additional_field) == 2:
@@ -116,30 +118,34 @@ def leaf_fields(node: VSSNode, additional_leaf_fields: list) -> Dict[str, GraphQ
                 raise GraphQLFieldException(
                     "", "", "Incorrect format of graphql field specification"
                 )
-    unit = getattr(node.data, "unit", None)
-    if unit:
-        field_dict["unit"] = field(node, "Unit of ")
+    
     return field_dict
 
 
-def branch_fields(
-    node: VSSNode, additional_leaf_fields: list
-) -> Dict[str, GraphQLField]:
+def branch_fields(node: VSSNode, additional_leaf_fields: list) -> Dict[str, GraphQLField]:
     # we only consider nodes that either have children or are datatype leafs
     valid = (c for c in node.children if len(c.children) or hasattr(c.data, "datatype"))
     return {
-        camel_back(c.name): field(c, type=to_gql_type(c, additional_leaf_fields))
+        camel_back(c.name): to_gql_type(c, additional_leaf_fields)
         for c in valid
     }
 
 
 def field(node: VSSNode, description_prefix="", type=GraphQLString) -> GraphQLField:
     data = node.get_vss_data()
-    return GraphQLField(
-        type,
-        deprecation_reason=data.deprecation,
-        description=f"{description_prefix}{data.description}",
-    )
+    unit = getattr(node.data, "unit", None)
+    if unit:
+        return GraphQLField(
+            type,
+            deprecation_reason=data.deprecation,
+            description=f"{description_prefix}{data.description}\n@unit: {unit}",
+        )
+    else:
+        return GraphQLField(
+            type,
+            deprecation_reason=data.deprecation,
+            description=f"{description_prefix}{data.description}",
+        )
 
 
 @click.command()
