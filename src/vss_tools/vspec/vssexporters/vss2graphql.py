@@ -134,18 +134,33 @@ def branch_fields(node: VSSNode, additional_leaf_fields: list) -> Dict[str, Grap
 def field(node: VSSNode, description_prefix="", type=GraphQLString) -> GraphQLField:
     data = node.get_vss_data()
     unit = getattr(node.data, "unit", None)
+    allowed = getattr(node.data, "allowed", None)
+    min_constraint = getattr(node.data, "min", None)
+    max_constraint = getattr(node.data, "max", None)
+    default = getattr(node.data, "default", None)
+    
+    description = f"{description_prefix}{data.description}"
+
     if unit:
-        return GraphQLField(
-            type,
-            deprecation_reason=data.deprecation,
-            description=f"{description_prefix}{data.description}\n@unit: {unit}",
-        )
-    else:
-        return GraphQLField(
-            type,
-            deprecation_reason=data.deprecation,
-            description=f"{description_prefix}{data.description}",
-        )
+        description = description + f"\n@unit: {unit}"
+
+    if allowed:
+        description = description + f"\n@allowed: {allowed}"
+
+    if min_constraint:
+        description = description + f"\n@min: {min_constraint}"
+
+    if max_constraint:
+        description = description + f"\n@max: {max_constraint}"
+
+    if default:
+        description = description + f"\n@default: {default}"
+    
+    return GraphQLField(
+        type,
+        deprecation_reason=data.deprecation,
+        description=description,
+    )
 
 
 @click.command()
