@@ -277,9 +277,12 @@ class VSSDataDatatype(VSSData):
             assert Datatypes.get_type(
                 self.datatype
             ), f"Cannot use 'unit' with complex datatype: '{self.datatype}'"
+            allowed_datatypes = dynamic_units[self.unit].allowed_datatypes
+            if allowed_datatypes is None:
+                allowed_datatypes = []
             assert any(
                 Datatypes.is_subtype_of(self.datatype.rstrip("[]"), a)
-                for a in dynamic_units[self.unit]
+                for a in allowed_datatypes
             ), f"'{self.datatype}' is not allowed for unit '{self.unit}'"
         return self
 
