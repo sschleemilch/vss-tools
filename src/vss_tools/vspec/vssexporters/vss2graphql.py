@@ -134,6 +134,8 @@ def branch_fields(node: VSSNode, additional_leaf_fields: list) -> Dict[str, Grap
 def field(node: VSSNode, description_prefix="", type=GraphQLString) -> GraphQLField:
     data = node.get_vss_data()
     unit = getattr(node.data, "unit", None)
+    original_path = node.get_fqn()
+    original_datatype = getattr(node.data, "datatype", None)
     allowed = getattr(node.data, "allowed", None)
     min_constraint = getattr(node.data, "min", None)
     max_constraint = getattr(node.data, "max", None)
@@ -141,8 +143,15 @@ def field(node: VSSNode, description_prefix="", type=GraphQLString) -> GraphQLFi
     
     description = f"{description_prefix}{data.description}"
 
+    if original_path:
+        description = description + f"\n@vss_path: {original_path}"
+
     if unit:
         description = description + f"\n@unit: {unit}"
+
+    # Uncomment the two lines below if the original datatype specified in vspec should be included in the doc string.
+    # if original_datatype:
+    #    description = description + f"\n@original_datatype: {original_datatype}"
 
     if allowed:
         description = description + f"\n@allowed: {allowed}"
