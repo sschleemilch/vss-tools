@@ -57,9 +57,9 @@ package vss
 
 type Vehicle struct {
 	Speed uint16
-	Location TypesGPSLocation
+	Location GPSLocation
 }
-type TypesGPSLocation struct {
+type GPSLocation struct {
 	Longitude float32
 	Latitude float32
 }

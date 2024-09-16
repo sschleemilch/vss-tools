@@ -34,9 +34,9 @@ type Vehicle struct {
 	AllTypes AllTypes
 }
 type TypesStruct struct {
-	x TypesStructEmbedded
+	x StructEmbedded
 	y uint8
 }
-type TypesStructEmbedded struct {
+type StructEmbedded struct {
 	z []uint8
 }

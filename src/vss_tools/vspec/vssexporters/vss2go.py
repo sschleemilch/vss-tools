@@ -41,7 +41,9 @@ datatype_map = {
 struct_names: dict[str, int] = {}
 
 
-def create_struct_names(root: VSSNode) -> None:
+def create_struct_names(root: VSSNode | None) -> None:
+    if not root:
+        return
     for node in PreOrderIter(root):
         if node.name in struct_names:
             struct_names[node.name] += 1
@@ -49,28 +51,30 @@ def create_struct_names(root: VSSNode) -> None:
             struct_names[node.name] = 1
 
 
-def get_struct_name(node: VSSNode, types_tree: bool = False) -> str:
-    if types_tree:
-        return node.get_fqn("")
-    split = node.get_fqn().split(".")
-    parts = struct_names[node.name]
+def get_struct_name(name: str, fqn: str) -> str:
+    split = fqn.split(".")
+    parts = struct_names[name]
     if parts >= len(split):
-        return node.get_fqn("")
+        return fqn.replace(".", "")
     return "".join(split[-parts:])
 
 
-def get_datatype(node: VSSNode, types_tree: bool = False) -> str:
+def get_datatype(node: VSSNode) -> str:
     if isinstance(node.data, VSSDataDatatype):
         if node.data.datatype in datatype_map:
             return datatype_map[node.data.datatype]
         datatype = Datatypes.get_type(node.data.datatype)
         if datatype:
             return datatype[0]
-        datatype_raw = node.data.datatype.replace(".", "")
-        if is_array(datatype_raw):
-            datatype_raw = f"[]{datatype_raw.rstrip('[]')}"
-        return datatype_raw
-    return get_struct_name(node, types_tree)
+        # Struct type
+        datatype_raw = node.data.datatype
+        array = is_array(datatype_raw)
+        struct_datatype = node.data.datatype.rstrip("[]")
+        struct_datatype = get_struct_name(struct_datatype.split(".")[-1], struct_datatype)
+        if array:
+            struct_datatype = f"[]{struct_datatype}"
+        return struct_datatype
+    return get_struct_name(node.name, node.get_fqn())
 
 
 def add_go_struct(structs: dict[str, str], node: VSSNode, name: str, types_tree: bool = False):
@@ -79,7 +83,7 @@ def add_go_struct(structs: dict[str, str], node: VSSNode, name: str, types_tree:
             return ""
         struct = ""
         for child in node.children:
-            child_datatype = get_datatype(child, types_tree)
+            child_datatype = get_datatype(child)
             struct += f"\t{child.name} {child_datatype}\n"
             add_go_struct(structs, child, child_datatype, types_tree)
         if types_tree and isinstance(node.data, VSSDataBranch):
@@ -131,10 +135,13 @@ def cli(
     )
     structs: dict[str, str] = {}
     datatype_structs: dict[str, str] = {}
-    if datatype_tree:
-        add_go_struct(datatype_structs, datatype_tree, get_struct_name(datatype_tree, True), True)
     create_struct_names(tree)
-    add_go_struct(structs, tree, get_struct_name(tree))
+    create_struct_names(datatype_tree)
+    if datatype_tree:
+        add_go_struct(
+            datatype_structs, datatype_tree, get_struct_name(datatype_tree.name, datatype_tree.get_fqn()), True
+        )
+    add_go_struct(structs, tree, get_struct_name(tree.name, tree.get_fqn()))
 
     with open(output, "w") as f:
         f.write(f"package {package}\n\n")
