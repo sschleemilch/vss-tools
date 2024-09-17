@@ -42,6 +42,12 @@ struct_names: dict[str, int] = {}
 
 
 def create_struct_names(root: VSSNode | None) -> None:
+    """
+    We are checking all nodes and counting duplicate names
+    For every duplicate we are counting up.
+    The info will be used to select how many parents to include
+    in a struct name to make it unique
+    """
     if not root:
         return
     for node in PreOrderIter(root):
@@ -52,6 +58,10 @@ def create_struct_names(root: VSSNode | None) -> None:
 
 
 def get_struct_name(name: str, fqn: str) -> str:
+    """
+    Gets a struct name from a requested node name and its fqn.
+    `struct_names` is used to select the number of parents to include
+    """
     split = fqn.split(".")
     parts = struct_names[name]
     if parts >= len(split):
@@ -60,6 +70,11 @@ def get_struct_name(name: str, fqn: str) -> str:
 
 
 def get_datatype(node: VSSNode) -> str:
+    """
+    Gets the datatype string of a node.
+    If it is a node containing datatype it will be a final datatype.
+    Else it will be a struct name.
+    """
     if isinstance(node.data, VSSDataDatatype):
         if node.data.datatype in datatype_map:
             return datatype_map[node.data.datatype]
@@ -78,6 +93,10 @@ def get_datatype(node: VSSNode) -> str:
 
 
 def add_go_struct(structs: dict[str, str], node: VSSNode, name: str, types_tree: bool = False):
+    """
+    Traverses the tree and builds structs with a dict with struct name as key and
+    the struct content as value
+    """
     if isinstance(node.data, VSSDataBranch) or isinstance(node.data, VSSDataStruct):
         if not node.children:
             return ""
