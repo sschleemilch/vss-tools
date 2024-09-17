@@ -57,12 +57,13 @@ def create_struct_names(root: VSSNode | None) -> None:
             struct_names[node.name] = 1
 
 
-def get_struct_name(name: str, fqn: str) -> str:
+def get_struct_name(fqn: str) -> str:
     """
-    Gets a struct name from a requested node name and its fqn.
+    Gets a struct name from a requested node fqn.
     `struct_names` is used to select the number of parents to include
     """
     split = fqn.split(".")
+    name = split[-1]
     parts = struct_names[name]
     if parts >= len(split):
         return fqn.replace(".", "")
@@ -85,11 +86,11 @@ def get_datatype(node: VSSNode) -> str:
         datatype_raw = node.data.datatype
         array = is_array(datatype_raw)
         struct_datatype = node.data.datatype.rstrip("[]")
-        struct_datatype = get_struct_name(struct_datatype.split(".")[-1], struct_datatype)
+        struct_datatype = get_struct_name(struct_datatype)
         if array:
             struct_datatype = f"[]{struct_datatype}"
         return struct_datatype
-    return get_struct_name(node.name, node.get_fqn())
+    return get_struct_name(node.get_fqn())
 
 
 def add_go_struct(structs: dict[str, str], node: VSSNode, name: str, types_tree: bool = False):
@@ -157,10 +158,8 @@ def cli(
     create_struct_names(tree)
     create_struct_names(datatype_tree)
     if datatype_tree:
-        add_go_struct(
-            datatype_structs, datatype_tree, get_struct_name(datatype_tree.name, datatype_tree.get_fqn()), True
-        )
-    add_go_struct(structs, tree, get_struct_name(tree.name, tree.get_fqn()))
+        add_go_struct(datatype_structs, datatype_tree, get_struct_name(datatype_tree.get_fqn()), True)
+    add_go_struct(structs, tree, get_struct_name(tree.get_fqn()))
 
     with open(output, "w") as f:
         f.write(f"package {package}\n\n")
