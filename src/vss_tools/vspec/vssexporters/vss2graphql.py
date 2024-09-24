@@ -16,6 +16,7 @@ from pathlib import Path
 from vss_tools.vspec.utils.misc import camel_back
 from typing import Dict
 from vss_tools.vspec.datatypes import Datatypes
+from vss_tools.vspec.datatypes import Datatypes, dynamic_units
 
 from graphql import (
     GraphQLSchema,
@@ -139,10 +140,15 @@ def field(node: VSSNode, description_prefix="", type=GraphQLString) -> GraphQLFi
     max_constraint = getattr(node.data, "max", None)
     default = getattr(node.data, "default", None)
     vss_legacy_path = node.get_fqn()
-    vss_legacy_type = getattr(node.data, "type", None)
+    vss_legacy_type = None
+    if isinstance(node.data, VSSDataDatatype):
+        vss_legacy_type = node.data.type.value
+
     vss_legacy_datatype = getattr(node.data, "datatype", None)
     
     description = f"{description_prefix}{data.description}"
+
+    #quantity_kind = dynamic_units[unit].quantity
 
     if unit:
         description = description + f"\n@unit: {unit}"
