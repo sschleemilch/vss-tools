@@ -15,8 +15,7 @@ from vss_tools.vspec.main import get_trees
 from pathlib import Path
 from vss_tools.vspec.utils.misc import camel_back
 from typing import Dict
-from vss_tools.vspec.datatypes import Datatypes
-from vss_tools.vspec.datatypes import Datatypes, dynamic_units
+from vss_tools.vspec.datatypes import Datatypes, dynamic_units, is_array
 
 from graphql import (
     GraphQLSchema,
@@ -30,6 +29,8 @@ from graphql import (
     GraphQLInt,
     GraphQLFloat,
     GraphQLBoolean,
+    GraphQLEnumType,
+    GraphQLEnumValue,
 )
 
 GRAPHQL_TYPE_MAPPING = {
@@ -141,31 +142,13 @@ def field(node: VSSNode, description_prefix="", type=GraphQLString) -> GraphQLFi
     default = getattr(node.data, "default", None)
     vss_legacy_path = node.get_fqn()
     vss_legacy_type = None
+    vss_legacy_datatype = getattr(node.data, "datatype", None)
+
     if isinstance(node.data, VSSDataDatatype):
         vss_legacy_type = node.data.type.value
 
-    vss_legacy_datatype = getattr(node.data, "datatype", None)
-    
     description = f"{description_prefix}{data.description}"
 
-    #quantity_kind = dynamic_units[unit].quantity
-
-    if unit:
-        description = description + f"\n@unit: {unit}"
-
-    if allowed:
-        description = description + f"\n@allowed: {allowed}"
-
-    if min_constraint:
-        description = description + f"\n@min: {min_constraint}"
-
-    if max_constraint:
-        description = description + f"\n@max: {max_constraint}"
-
-    if default:
-        description = description + f"\n@default: {default}"
-
-    # VSS legacy information
     if vss_legacy_path:
         description = description + f"\n@vss_legacy_path: {vss_legacy_path}"
 
@@ -174,7 +157,43 @@ def field(node: VSSNode, description_prefix="", type=GraphQLString) -> GraphQLFi
 
     if vss_legacy_datatype:
         description = description + f"\n@vss_legacy_datatype: {vss_legacy_datatype}"
-    
+
+    if unit:
+        description = description + f"\n@vss_legacy_unit: {unit}"
+
+    if allowed:
+        description = description + f"\n@vss_legacy_allowed: {allowed}"
+        enum_name = f'{node.parent.name}_{node.name}'
+        #if enum_name[0].isdigit() or enum_name.lower() == "type":
+        #    enum_name = '_' + enum_name
+
+        enum_values = {}
+        for value in allowed:
+            if value[0].isdigit():
+                enum_values[f'_{value}'] = GraphQLEnumValue(value)
+            else:
+                enum_values[value] = GraphQLEnumValue(value)
+
+        enum_type = GraphQLEnumType(
+            f"{node.parent.get_fqn("")}{enum_name}Enum",
+            enum_values,
+        )
+        if is_array(vss_legacy_datatype):
+            type = GraphQLList(enum_type)
+        else:
+            type = enum_type
+
+    if min_constraint:
+        description = description + f"\n@vss_legacy_min: {min_constraint}"
+
+    if max_constraint:
+        description = description + f"\n@vss_legacy_max: {max_constraint}"
+
+    if default:
+        description = description + f"\n@vss_legacy_default: {default}"
+
+    #quantity_kind = dynamic_units[unit].quantity
+
     return GraphQLField(
         type,
         deprecation_reason=data.deprecation,
