@@ -179,14 +179,21 @@ Things to do for maintainers:
   ```
 - Commit and push the changes
 - Tag the commit with the new version
+
   ```bash
   TAG=$(grep 'current_version' .bumpversion.toml | sed 's/.*current_version = "\(.*\)"/\1/') && git tag -f v$TAG && git push origin v$TAG
   ```
+
 - Build the artifacts
+
   ```bash
   uv build
   ```
-- Upload the artifacts
+
+  - Upload the artifacts
+
   ```bash
   twine upload dist/*
   ```
+
+- Bump the version on `main` as pre-dev: `bump-my-version bump pre_n`
